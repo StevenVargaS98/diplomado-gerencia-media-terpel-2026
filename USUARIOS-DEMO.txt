@@ -1,0 +1,16 @@
+BRÚJULA ESTRATÉGICA — ACCESOS DE PRUEBA
+
+Administrador
+Usuario: admin@maestria.test
+Contraseña: Brujula2026!
+
+Líder
+Usuario: lider@maestria.test
+Contraseña: Lider2026!
+
+Integrante
+Usuario: equipo@maestria.test
+Contraseña: Equipo2026!
+
+Estas credenciales son genéricas y únicamente deben usarse para demostración.
+GitHub Pages es público y cualquier persona puede verlas en el código fuente.

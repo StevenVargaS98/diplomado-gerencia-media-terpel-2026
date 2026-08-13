@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Brújula Estratégica colaborativa para equipo de maestría">
+  <meta property="og:title" content="Brújula Estratégica">
+  <meta property="og:description" content="Un equipo. Un solo rumbo.">
+  <meta property="og:image" content="og.png">
+  <title>Brújula Estratégica | Equipo de Maestría</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="login" class="login-screen">
+    <section class="login-story">
+      <div class="brand"><div class="brand-mark"></div><div><h1>Brújula Estratégica</h1><span>Espacio colaborativo</span></div></div>
+      <div class="login-copy"><span class="eyebrow">Equipo de Maestría</span><h2>Una estrategia.<br><em>Un solo rumbo.</em></h2><p>Planeen, asignen y hagan seguimiento juntos. La lógica del Excel, convertida en una experiencia clara y compartida.</p></div>
+      <div class="login-foot">Edición demostrativa para GitHub Pages</div>
+    </section>
+    <section class="login-box">
+      <form id="login-form" class="login-card">
+        <h3>Bienvenido(a)</h3>
+        <p>Ingrese con uno de los usuarios genéricos de prueba.</p>
+        <div id="login-error" class="login-error hidden">Usuario o contraseña incorrectos.</div>
+        <div class="field"><label for="email">Usuario</label><input id="email" type="email" required autocomplete="username" placeholder="usuario@maestria.test"></div>
+        <div class="field"><label for="password">Contraseña</label><input id="password" type="password" required autocomplete="current-password" placeholder="••••••••••"></div>
+        <button class="primary-btn" type="submit">Entrar a la brújula →</button>
+        <details class="accounts"><summary>Ver accesos de demostración</summary><div id="login-accounts"></div></details>
+      </form>
+    </section>
+  </div>
+
+  <div id="application" class="app-shell hidden">
+    <div class="demo-banner">Modo demostración de GitHub Pages: los cambios se guardan únicamente en este navegador.</div>
+    <header class="topbar">
+      <div class="brand"><div class="brand-mark"></div><div><h1>Brújula Estratégica</h1><span>Equipo de Maestría · 2026—2029</span></div></div>
+      <div class="top-actions"><span class="sync-pill"><span class="sync-dot"></span>Guardado local</span><span id="role" class="role-badge"></span><span id="current-user" class="user-pill"></span><button id="logout" class="danger-btn">Salir</button></div>
+    </header>
+    <div class="workspace">
+      <aside class="sidebar"><div class="nav-title"><span class="eyebrow">Navegación</span></div><nav id="navigation" class="nav-list" aria-label="Perspectivas"></nav><div class="side-note"><strong>Edición de prueba</strong><p>Use esta versión para validar el flujo. Para colaboración real se debe conectar una base de datos externa.</p></div></aside>
+      <main class="main">
+        <section class="hero"><div><span class="eyebrow">Direccionamiento estratégico</span><h2>Del propósito a la <em>acción.</em></h2><p>Conecte objetivos, proyectos, responsables y avances en un espacio común para su equipo.</p></div><button id="new-objective" class="primary-btn">＋ Nuevo objetivo</button></section>
+        <section id="stats" class="stats"></section>
+        <section class="panel"><div class="panel-head"><div><h3 id="panel-title">Portafolio estratégico</h3><p id="panel-detail"></p></div><div class="filters"><input id="search" class="search" aria-label="Buscar" placeholder="Buscar objetivo o líder…"></div></div><div id="objectives" class="objective-list"></div></section>
+      </main>
+    </div>
+  </div>
+
+  <div id="modal-root"></div><div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>
