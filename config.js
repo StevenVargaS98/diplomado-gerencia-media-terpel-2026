@@ -3,5 +3,5 @@
 window.PORTAL_CONFIG = {
   supabaseUrl: "https://zlilnnthjztzszejxwfd.supabase.co",
   supabasePublishableKey: "sb_publishable_ZmGmOaD9mceaizjBVJ0PCQ_tOp2tyN8",
-  siteName: "Diplomado de Gerencia Media",
+  siteName: "Diplomado en Habilidades de Gerencia Media - Organización Terpel",
 };

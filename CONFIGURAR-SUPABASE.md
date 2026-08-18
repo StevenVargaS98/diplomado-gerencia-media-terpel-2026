@@ -68,7 +68,7 @@ Edite `config.js`:
 window.PORTAL_CONFIG = {
   supabaseUrl: "https://SU-PROYECTO.supabase.co",
   supabasePublishableKey: "sb_publishable_...",
-  siteName: "Diplomado de Gerencia Media",
+  siteName: "Diplomado en Habilidades de Gerencia Media - Organización Terpel",
 };
 ```
 

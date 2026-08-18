@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Portal académico colaborativo del Diplomado de Gerencia Media">
-  <meta property="og:title" content="Diplomado de Gerencia Media">
+  <meta name="description" content="Portal académico colaborativo del Diplomado en Habilidades de Gerencia Media - Organización Terpel">
+  <meta property="og:title" content="Diplomado en Habilidades de Gerencia Media - Organización Terpel">
   <meta property="og:description" content="Del reto estratégico a una solución con impacto.">
   <meta property="og:image" content="og.png">
-  <title>Portal | Diplomado de Gerencia Media</title>
-  <link rel="stylesheet" href="styles.css?v=20260818-6">
+  <title>Diplomado en Habilidades de Gerencia Media - Organización Terpel</title>
+  <link rel="icon" type="image/png" href="assets/logo-terpel.png">
+  <link rel="stylesheet" href="styles.css?v=20260818-7">
 </head>
 <body class="portal-body">
-  <div id="boot-view" class="center-stage"><section class="setup-panel"><div class="setup-icon">GM</div><span class="eyebrow">Iniciando portal</span><h2>Cargando la experiencia académica…</h2><p id="boot-detail">Conectando de forma segura con la base del diplomado.</p></section></div>
+  <div id="boot-view" class="center-stage"><section class="setup-panel"><img class="setup-brand-logo" src="assets/logo-terpel.png" alt="Logo de Terpel"><span class="eyebrow">Iniciando portal</span><h2>Cargando la experiencia académica…</h2><p id="boot-detail">Conectando de forma segura con la base del diplomado.</p></section></div>
   <div id="config-view" class="center-stage hidden"></div>
 
   <main id="auth-view" class="auth-layout hidden">
     <section class="auth-story">
-      <div class="program-brand"><span class="program-mark">GM</span><div><strong>Diplomado de Gerencia Media</strong><small>Proyecto de aplicación · 2026</small></div></div>
+      <div class="program-brand"><img class="program-logo" src="assets/logo-terpel.png" alt="Logo de Terpel"><div><strong>Diplomado en Habilidades de Gerencia Media - Organización Terpel</strong><small>Proyecto de aplicación · 2026</small></div></div>
       <div class="auth-copy"><span class="eyebrow light">Experiencia académica colaborativa</span><h1>Del reto estratégico<br>a una solución con <em>impacto.</em></h1><p>Formule el proyecto, diseñe el prototipo y prepare el pitch final junto con su equipo.</p><div class="stage-chips"><span>01 Formulación</span><span>02 Prototipo</span><span>03 Shark tank</span></div></div>
       <div class="auth-deadline"><span>Próximo hito</span><strong>Formulación del proyecto</strong><time>17 de septiembre</time></div>
     </section>
@@ -67,7 +68,7 @@
   </div>
 
   <div id="app-view" class="portal-shell hidden">
-    <header class="portal-topbar"><div class="program-brand dark"><span class="program-mark">GM</span><div><strong>Diplomado de Gerencia Media</strong><small id="team-label">Proyecto de aplicación</small></div></div><div class="top-actions"><span class="save-state"><i></i>Datos protegidos</span><button id="team-invite-btn" class="admin-link hidden" type="button">Invitar integrantes</button><a id="admin-link" class="admin-link hidden" href="admin.html">Administración</a><span id="profile-name" class="user-pill"></span><button class="text-btn" data-signout>Salir</button></div></header>
+    <header class="portal-topbar"><div class="program-brand dark"><img class="program-logo" src="assets/logo-terpel.png" alt="Logo de Terpel"><div><strong>Diplomado en Habilidades de Gerencia Media - Organización Terpel</strong><small id="team-label">Proyecto de aplicación</small></div></div><div class="top-actions"><span class="save-state"><i></i>Datos protegidos</span><button id="team-invite-btn" class="admin-link hidden" type="button">Invitar integrantes</button><a id="admin-link" class="admin-link hidden" href="admin.html">Administración</a><span id="profile-name" class="user-pill"></span><button class="text-btn" data-signout>Salir</button></div></header>
     <div id="admin-workspace-banner" class="admin-workspace-banner hidden"><div><strong>Vista administrativa</strong><span>Está supervisando el espacio de <b id="admin-workspace-team"></b> sin ingresar como integrante.</span></div><a class="ghost-btn button-link" href="admin.html">← Volver a equipos</a></div>
     <div class="portal-workspace">
       <aside class="course-sidebar"><div class="course-progress"><span>Progreso del proyecto</span><strong id="overall-progress">0%</strong><div class="progress-track"><div id="overall-bar" class="progress-fill"></div></div></div><nav id="course-nav" class="course-nav"></nav><div class="guide-card"><span>Guía académica</span><strong>7 componentes</strong><p>La estructura sigue los documentos oficiales del diplomado.</p><button id="print-project" class="ghost-btn">Vista de entrega</button></div></aside>
@@ -99,6 +100,6 @@
     })();
   </script>
   <script src="vendor/supabase.min.js?v=2.112.3" onerror="portalScriptError('Supabase local')"></script>
-  <script src="config.js?v=20260818-6" onerror="portalScriptError('config.js')"></script><script src="portal-core.js?v=20260818-6" onerror="portalScriptError('portal-core.js')"></script><script src="app.js?v=20260818-6" onerror="portalScriptError('app.js')"></script>
+  <script src="config.js?v=20260818-7" onerror="portalScriptError('config.js')"></script><script src="portal-core.js?v=20260818-7" onerror="portalScriptError('portal-core.js')"></script><script src="app.js?v=20260818-7" onerror="portalScriptError('app.js')"></script>
 </body>
 </html>

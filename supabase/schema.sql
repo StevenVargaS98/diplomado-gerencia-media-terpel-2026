@@ -1,4 +1,4 @@
--- Portal académico · Diplomado de Gerencia Media
+-- Portal académico · Diplomado en Habilidades de Gerencia Media - Organización Terpel
 -- Ejecutar una sola vez en Supabase > SQL Editor.
 -- Todas las tablas expuestas tienen Row Level Security (RLS).
 

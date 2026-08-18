@@ -1,4 +1,4 @@
-# Portal · Diplomado de Gerencia Media
+# Diplomado en Habilidades de Gerencia Media - Organización Terpel
 
 Portal académico colaborativo preparado para **GitHub Pages + Supabase**. Convierte la Brújula Estratégica y las dos guías oficiales del proyecto de aplicación en un flujo digital de trabajo por equipos.
 
@@ -46,6 +46,7 @@ También incorpora las fechas indicadas: 18 de agosto, 17 de septiembre, 27 de o
 index.html                  Portal de participantes
 admin.html                  Gestión de administradores y docentes
 jury.html                   Evaluación privada del panel de jurados
+assets/logo-terpel.png      Identidad visual utilizada en el portal
 app.js                      Flujo académico y colaboración
 admin.js                    Gestión académica
 jury.js                     Rúbrica y valoración de proyectos

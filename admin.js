@@ -1,5 +1,5 @@
 (() => {
-const { configured, supabase, escapeHtml: esc, shortDate, toast, setBusy, setupPanel } = window.Portal;
+const { config, configured, supabase, escapeHtml: esc, shortDate, toast, setBusy, setupPanel } = window.Portal;
 const adminState = { user: null, profile: null, section: "overview", cohorts: [], teams: [], people: [], projects: [], reviews: [] };
 const $ = (selector) => document.querySelector(selector);
 
@@ -119,7 +119,7 @@ async function handleAdminChange(event) {
 }
 
 function teamModal() {
-  modal(`<span class="eyebrow">Nuevo equipo</span><h2>Crear equipo académico</h2><form id="team-create" class="modal-form"><label>Nombre<input name="name" required placeholder="Equipo Presencial 1"></label><label>Cohorte<select name="cohort_id" required>${adminState.cohorts.map((cohort) => `<option value="${cohort.id}">${esc(cohort.name)} ${cohort.year}</option>`).join("")}</select></label><div class="two-cols"><label>Modalidad<select name="modality"><option value="presencial">Presencial</option><option value="remoto">Remoto</option></select></label><label>Máximo de integrantes<input name="max_members" type="number" min="3" max="8" value="4"></label></div><button class="primary-btn">Crear equipo</button></form>`);
+  modal(`<span class="eyebrow">Nuevo equipo</span><h2>Crear equipo académico</h2><form id="team-create" class="modal-form"><label>Nombre<input name="name" required placeholder="Equipo Presencial 1"></label><label>Cohorte<select name="cohort_id" required>${adminState.cohorts.map((cohort) => `<option value="${cohort.id}">${esc(config.siteName || cohort.name)} ${cohort.year}</option>`).join("")}</select></label><div class="two-cols"><label>Modalidad<select name="modality"><option value="presencial">Presencial</option><option value="remoto">Remoto</option></select></label><label>Máximo de integrantes<input name="max_members" type="number" min="3" max="8" value="4"></label></div><button class="primary-btn">Crear equipo</button></form>`);
   $("#team-create").onsubmit = async (event) => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget)); values.max_members = Number(values.max_members); values.created_by = adminState.user.id; const { error } = await supabase.from("academic_teams").insert(values); if (error) return toast(error.message, "error"); closeModal(); await reload(); toast("Equipo creado."); };
 }
 

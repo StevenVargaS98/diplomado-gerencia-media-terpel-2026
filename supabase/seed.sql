@@ -1,7 +1,7 @@
--- Datos académicos iniciales del Diplomado de Gerencia Media 2026.
+-- Datos académicos iniciales del Diplomado en Habilidades de Gerencia Media - Organización Terpel 2026.
 insert into public.cohorts(id,name,year,institution,company,starts_on,ends_on,active)
-values('10000000-0000-4000-8000-000000000001','Diplomado de Gerencia Media',2026,'Pontificia Universidad Javeriana','Organización Terpel','2026-08-18','2026-11-26',true)
-on conflict(name,year) do update set active=true;
+values('10000000-0000-4000-8000-000000000001','Diplomado en Habilidades de Gerencia Media - Organización Terpel',2026,'Pontificia Universidad Javeriana','Organización Terpel','2026-08-18','2026-11-26',true)
+on conflict(id) do update set name=excluded.name,institution=excluded.institution,company=excluded.company,active=true;
 
 insert into public.strategic_perspectives(id,code,name,sort_order) values
 ('20000000-0000-4000-8000-000000000001','P1','Capital estratégico',1),

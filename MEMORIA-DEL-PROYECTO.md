@@ -1,6 +1,6 @@
 # Memoria del proyecto
 
-## Portal del Diplomado de Gerencia Media
+## Diplomado en Habilidades de Gerencia Media - Organización Terpel
 
 Última actualización: 18 de agosto de 2026
 Repositorio: `StevenVargaS98/diplomado-gerencia-media-terpel-2026`  
@@ -14,7 +14,7 @@ Esta memoria permite continuar el desarrollo sin depender del historial de la co
 
 ## 1. Objetivo del portal
 
-El portal reemplaza y amplía el trabajo que inicialmente se llevaba en Excel. Su finalidad es que los participantes del **Diplomado de Gerencia Media** puedan formular, desarrollar y presentar un proyecto académico de manera colaborativa.
+El portal reemplaza y amplía el trabajo que inicialmente se llevaba en Excel. Su finalidad es que los participantes del **Diplomado en Habilidades de Gerencia Media - Organización Terpel** puedan formular, desarrollar y presentar un proyecto académico de manera colaborativa.
 
 La solución incorpora la estructura de los documentos académicos revisados:
 
@@ -673,7 +673,7 @@ Después de cada `git push`:
 1. Esperar entre uno y tres minutos.
 2. Abrir la URL pública.
 3. Usar `Ctrl + F5`.
-4. Confirmar que el título sea **Portal | Diplomado de Gerencia Media**.
+4. Confirmar que el título sea **Diplomado en Habilidades de Gerencia Media - Organización Terpel**.
 5. Comprobar que aparezca el registro sin código.
 6. Probar inicio de sesión.
 7. Comprobar el Centro de equipos.
@@ -786,3 +786,9 @@ Al retomar el proyecto, seguir este orden:
 El portal web está construido y publicado en GitHub Pages. La interfaz productiva está conectada al proyecto Supabase y permite autenticación, acceso sin equipo, liderazgo autorizado, invitaciones para integrantes, trabajo académico colaborativo, administración, jurados y recuperación simple de contraseña.
 
 El siguiente punto crítico no es agregar más interfaz: es confirmar la migración de Supabase, las URLs públicas de recuperación y una prueba completa con tres cuentas separadas —administrador, líder e integrante— antes de abrir el sistema a todo el diplomado.
+
+---
+
+## 23. Identidad visual institucional
+
+La identidad visible del portal usa el nombre **Diplomado en Habilidades de Gerencia Media - Organización Terpel** y el archivo `assets/logo-terpel.png`. El nombre y el logotipo se muestran en el inicio de sesión, el espacio de los equipos, la administración, el panel de jurados y la demostración local. El mismo recurso funciona como icono de las páginas.
