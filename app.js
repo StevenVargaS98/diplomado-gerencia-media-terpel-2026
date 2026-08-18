@@ -320,8 +320,8 @@ function subscribeRealtime() {
 
 function teamInvitationModal() {
   if (state.membership?.role !== "lider") return toast("Solo el líder puede generar invitaciones.", "error");
-  const suggested = `GM26-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-  openModal(`<span class="eyebrow">${esc(state.team.name)}</span><h2>Invitar integrantes</h2><p>El código se muestra una sola vez. Compártalo únicamente con las personas que formarán parte del equipo.</p><form id="team-invite-form" class="modal-form"><label>Código privado<input name="code" value="${suggested}" minlength="8" required></label><label>Número máximo de integrantes que pueden usarlo<input name="max_uses" type="number" min="1" max="7" value="${Math.max(1, state.team.max_members - 1)}" required></label><label>Fecha de vencimiento<input name="expires_at" type="datetime-local"></label><button class="primary-btn">Crear invitación</button></form><div id="team-created-code"></div>`);
+  const suggested = permanentInviteCode();
+  openModal(`<span class="eyebrow">${esc(state.team.name)}</span><h2>Crear código permanente</h2><p>El código no vence y podrá reutilizarse mientras el equipo tenga cupos. Se muestra una sola vez: cópielo y compártalo únicamente con sus integrantes.</p><form id="team-invite-form" class="modal-form"><label>Código permanente<input name="code" value="${suggested}" minlength="8" readonly required></label><button class="primary-btn">Activar código permanente</button></form><div id="team-created-code"></div>`);
   el("#team-invite-form").addEventListener("submit", async (event) => {
     event.preventDefault(); const button = event.submitter; const values = formData(event.currentTarget);
     setBusy(button, true, "Creando…");
@@ -329,16 +329,16 @@ function teamInvitationModal() {
       p_team: state.team.id,
       raw_code: values.code,
       p_role: "integrante",
-      p_max_uses: Number(values.max_uses),
-      p_expires_at: values.expires_at ? new Date(values.expires_at).toISOString() : null,
+      p_max_uses: 2147483647,
+      p_expires_at: null,
     });
     setBusy(button, false);
     if (error) return toast(humanError(error), "error");
     const code = values.code.trim().toUpperCase();
     event.currentTarget.classList.add("hidden");
-    el("#team-created-code").innerHTML = `<div class="one-time-code"><span>Código para integrantes</span><strong>${esc(code)}</strong><button class="ghost-btn" id="copy-team-code" type="button">Copiar código</button><small>El código no puede recuperarse después porque la base solamente guarda su hash.</small></div>`;
+    el("#team-created-code").innerHTML = `<div class="one-time-code"><span>Código permanente del equipo</span><strong>${esc(code)}</strong><button class="ghost-btn" id="copy-team-code" type="button">Copiar código</button><small>No vence. Funcionará mientras haya cupos y la invitación no sea revocada.</small></div>`;
     el("#copy-team-code").addEventListener("click", async () => {
-      await navigator.clipboard.writeText(code); toast("Código copiado.");
+      await navigator.clipboard.writeText(code); toast("Código permanente copiado.");
     });
   });
 }
@@ -353,11 +353,16 @@ function closeModal() { el("#modal-root").innerHTML = ""; }
 function area(label, name, value = "", placeholder = "", wide = false) { return `<label class="${wide ? "wide" : ""}">${label}<textarea name="${name}" placeholder="${esc(placeholder)}">${esc(value)}</textarea></label>`; }
 function recordList(items, render, type) { return items.length ? `<div class="record-list">${items.map((item) => `<article>${render(item)}<button class="delete-record" data-delete="${type}" data-id="${item.id}">×</button></article>`).join("")}</div>` : empty("Aún no hay registros en este componente."); }
 function empty(message) { return `<div class="empty-state">${esc(message)}</div>`; }
+function permanentInviteCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return `GM26-${Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("")}`;
+}
 function stageName(value) { return ({ formulacion: "Formulación", prototipo: "Prototipo", shark_tank: "Shark tank", completed: "Finalizado" })[value] || value; }
 function statusName(value) { return ({ pending: "Pendiente", submitted: "Entregado", in_review: "En revisión", changes_requested: "Requiere cambios", approved: "Aprobado" })[value] || value; }
 function emptyToNull(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
 function numeric(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
 function roleName(value) { return ({ admin: "Administrador", docente: "Docente", participante: "Participante", jurado: "Jurado", lider: "Líder habilitado" })[value] || value; }
 function recoveryRedirectPresent() { const hash = new URLSearchParams(window.location.hash.slice(1)); const query = new URLSearchParams(window.location.search); return window.portalRecoveryRedirect === true || hash.get("type") === "recovery" || query.get("type") === "recovery"; }
-function humanError(error) { const message = error?.message || "No fue posible completar la operación."; if (/Invalid login/i.test(message)) return "Correo o contraseña incorrectos."; if (/Email not confirmed/i.test(message)) return "Confirme primero su correo electrónico."; if (/duplicate key/i.test(message)) return "Ese registro ya existe."; return message; }
+function humanError(error) { const message = error?.message || "No fue posible completar la operación."; if (/Invalid login/i.test(message)) return "Correo o contraseña incorrectos."; if (/Email not confirmed/i.test(message)) return "Confirme primero su correo electrónico."; if (/Código inválido o vencido/i.test(message)) return "Código no reconocido. Solicite al líder o al administrador un código permanente nuevo."; if (/duplicate key/i.test(message)) return "Ese registro ya existe."; return message; }
 })();

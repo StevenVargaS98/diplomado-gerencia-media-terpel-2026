@@ -124,9 +124,9 @@ function teamModal() {
 }
 
 function invitationModal(teamId, name) {
-  const suggested = `GM26-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
-  modal(`<span class="eyebrow">${esc(name)}</span><h2>Generar invitación segura</h2><p>El código es únicamente para integrantes y se mostrará una sola vez. El liderazgo se asigna desde Participantes y roles.</p><form id="invite-create" class="modal-form"><label>Código<input name="code" value="${suggested}" minlength="8" required></label><label>Número de usos<input name="max_uses" type="number" min="1" value="3"></label><label>Vence el<input name="expires_at" type="datetime-local"></label><button class="primary-btn">Crear invitación</button></form><div id="created-code"></div>`);
-  $("#invite-create").onsubmit = async (event) => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget)); const { error } = await supabase.rpc("create_invitation", { p_team: teamId, raw_code: values.code, p_role: "integrante", p_max_uses: Number(values.max_uses), p_expires_at: values.expires_at ? new Date(values.expires_at).toISOString() : null }); if (error) return toast(error.message, "error"); event.currentTarget.classList.add("hidden"); $("#created-code").innerHTML = `<div class="one-time-code"><span>Código de invitación</span><strong>${esc(values.code.toUpperCase())}</strong><button class="ghost-btn" id="copy-code">Copiar código</button><small>No podrá recuperarse después; solo se almacena su hash.</small></div>`; $("#copy-code").onclick = () => { navigator.clipboard.writeText(values.code.toUpperCase()); toast("Código copiado."); }; };
+  const suggested = permanentInviteCode();
+  modal(`<span class="eyebrow">${esc(name)}</span><h2>Crear código permanente</h2><p>Este código no vence y podrá reutilizarse mientras el equipo tenga cupos. Se mostrará una sola vez: cópielo y guárdelo en un lugar seguro.</p><form id="invite-create" class="modal-form"><label>Código permanente<input name="code" value="${suggested}" minlength="8" readonly required></label><button class="primary-btn">Activar código permanente</button></form><div id="created-code"></div>`);
+  $("#invite-create").onsubmit = async (event) => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget)); const { error } = await supabase.rpc("create_invitation", { p_team: teamId, raw_code: values.code, p_role: "integrante", p_max_uses: 2147483647, p_expires_at: null }); if (error) return toast(error.message, "error"); const code = values.code.trim().toUpperCase(); event.currentTarget.classList.add("hidden"); $("#created-code").innerHTML = `<div class="one-time-code"><span>Código permanente del equipo</span><strong>${esc(code)}</strong><button class="ghost-btn" id="copy-code" type="button">Copiar código</button><small>No vence. Funcionará mientras haya cupos y la invitación no sea revocada.</small></div>`; $("#copy-code").onclick = async () => { await navigator.clipboard.writeText(code); toast("Código permanente copiado."); }; };
 }
 
 function teamDetailModal(teamId) {
@@ -174,6 +174,11 @@ function modal(content) { $("#modal-root").innerHTML = `<div class="modal-backdr
 function closeModal() { $("#modal-root").innerHTML = ""; }
 async function reload() { await loadAdminData(); renderAdmin(); }
 function empty(message) { return `<div class="empty-state">${esc(message)}</div>`; }
+function permanentInviteCode() {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = crypto.getRandomValues(new Uint8Array(6));
+  return `GM26-${Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("")}`;
+}
 function adminRpcError(error) {
   const message = error?.message || "Error administrativo inesperado.";
   if (/schema cache|could not find the function/i.test(message)) return "Falta instalar o recargar las funciones administrativas en Supabase. Ejecute supabase/migracion-admin-eliminaciones.sql en el SQL Editor.";

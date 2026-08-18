@@ -532,6 +532,13 @@ Solución:
 - Ejecutar completa la migración administrativa.
 - La migración ahora envía `NOTIFY pgrst, 'reload schema'` y consulta la cola de notificaciones para forzar la actualización de la Data API.
 
+### Códigos permanentes de equipo
+
+- El administrador y el líder generan códigos sin fecha de vencimiento y con reutilización práctica ilimitada.
+- El ingreso continúa limitado por `max_members`; un código permanente no permite superar la capacidad del equipo.
+- Los códigos nuevos omiten caracteres ambiguos como `O`, `0`, `I` y `1`.
+- La base conserva únicamente el hash. El código debe copiarse y guardarse cuando se genera.
+
 ### Liderazgo concedido por código
 
 Causa:
