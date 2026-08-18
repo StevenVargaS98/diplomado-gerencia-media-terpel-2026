@@ -63,6 +63,8 @@ ARQUITECTURA-Y-SEGURIDAD.md Diseño técnico y modelo de permisos
 
 Siga [CONFIGURAR-SUPABASE.md](CONFIGURAR-SUPABASE.md). No necesita servidor propio: GitHub Pages aloja la interfaz y Supabase protege usuarios, datos y archivos.
 
+Para conocer el historial de decisiones, el estado actual, los procedimientos de operación y los pendientes, consulte [MEMORIA-DEL-PROYECTO.md](MEMORIA-DEL-PROYECTO.md).
+
 Si la base ya estaba instalada con la primera versión, registre primero la cuenta `ing.stevenh.vargas@gmail.com` y ejecute `supabase/migracion-acceso-y-lideres.sql` antes de publicar esta versión. La migración asigna esa cuenta existente como administradora, agrega el rol `lider` y revoca los códigos antiguos de liderazgo.
 
 ## Vista local sin configurar Supabase
