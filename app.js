@@ -2,12 +2,12 @@
 const { configured, libraryAvailable, supabase, escapeHtml: esc, shortDate, money, toast, setBusy, setupPanel } = window.Portal;
 
 const SECTIONS = [
-  ["overview", "Inicio", "00"], ["diagnosis", "Diagnóstico", "01"], ["objectives", "Objetivos SMART", "02"],
+  ["overview", "Inicio", "00"], ["members", "Equipo", "M"], ["diagnosis", "Diagnóstico", "01"], ["objectives", "Objetivos SMART", "02"],
   ["alternatives", "Alternativas", "03"], ["action", "Plan de acción", "04"], ["people", "Involucrados", "05"],
   ["indicators", "Indicadores", "06"], ["prototype", "Prototipo", "P"], ["deliverables", "Entregables", "E"], ["comments", "Comentarios", "C"],
 ];
 
-const state = { user: null, profile: null, membership: null, team: null, project: null, section: "overview", perspectives: [], diagnosis: null, objectives: [], alternatives: [], actions: [], stakeholders: [], resources: [], indicators: [], prototype: null, deliverables: [], comments: [], realtime: null, administrativeAccess: false };
+const state = { user: null, profile: null, membership: null, team: null, project: null, section: "overview", perspectives: [], participants: [], diagnosis: null, objectives: [], alternatives: [], actions: [], stakeholders: [], resources: [], indicators: [], prototype: null, deliverables: [], comments: [], realtime: null, administrativeAccess: false };
 let recoveryMode = recoveryRedirectPresent();
 
 const el = (selector) => document.querySelector(selector);
@@ -174,11 +174,13 @@ async function createTeamAsLeader(event) {
 }
 
 async function loadWorkspace() {
-  const [{ data: perspectives }, { data: project }] = await Promise.all([
+  const [{ data: perspectives }, { data: project }, { data: participants, error: participantsError }] = await Promise.all([
     supabase.from("strategic_perspectives").select("*").order("sort_order"),
     supabase.from("projects").select("*").eq("team_id", state.team.id).maybeSingle(),
+    supabase.rpc("get_team_participants", { p_team: state.team.id }),
   ]);
-  state.perspectives = perspectives || []; state.project = project;
+  state.perspectives = perspectives || []; state.project = project; state.participants = participants || [];
+  if (participantsError) toast(humanError(participantsError), "error");
   el("#profile-name").textContent = state.profile.full_name || state.profile.email;
   el("#team-label").textContent = `${state.team.name} · ${state.team.modality}`;
   el("#admin-workspace-banner").classList.toggle("hidden", !state.administrativeAccess);
@@ -209,7 +211,7 @@ async function loadProjectData() {
 
 function renderCreateProject() {
   show("#project-empty"); hide("#project-content");
-  el("#project-empty").innerHTML = `<section class="project-welcome"><span class="eyebrow">${esc(state.team.name)}</span><h1>Comiencen por definir el reto estratégico</h1><p>El proyecto debe responder a una necesidad real y aplicar las competencias desarrolladas en el diplomado.</p><form id="create-project-form" class="form-card"><label>Nombre del proyecto<input name="title" required placeholder="Un nombre claro y memorable"></label><label>Perspectiva estratégica<select name="perspective_id"><option value="">Seleccione…</option>${state.perspectives.map((item) => `<option value="${item.id}">${item.code} · ${esc(item.name)}</option>`).join("")}</select></label><label class="wide">Alineación estratégica<textarea name="strategic_alignment" required placeholder="¿Con qué necesidad u objetivo de la organización se conecta?"></textarea></label><button class="primary-btn">Crear espacio de proyecto →</button></form></section>`;
+  el("#project-empty").innerHTML = `<section class="project-welcome"><span class="eyebrow">${esc(state.team.name)}</span><h1>Comiencen por definir el reto estratégico</h1><p>El proyecto debe responder a una necesidad real y aplicar las competencias desarrolladas en el diplomado.</p><form id="create-project-form" class="form-card"><label>Nombre del proyecto<input name="title" required placeholder="Un nombre claro y memorable"></label><label>Perspectiva estratégica<select name="perspective_id"><option value="">Seleccione…</option>${state.perspectives.map((item) => `<option value="${item.id}">${item.code} · ${esc(item.name)}</option>`).join("")}</select></label><label class="wide">Alineación estratégica<textarea name="strategic_alignment" required placeholder="¿Con qué necesidad u objetivo de la organización se conecta?"></textarea></label><button class="primary-btn">Crear espacio de proyecto →</button></form></section>${teamRosterContent()}`;
   el("#create-project-form").addEventListener("submit", createProject);
 }
 
@@ -235,13 +237,13 @@ async function createProject(event) {
 function renderNavigation() {
   el("#course-nav").innerHTML = SECTIONS.map(([key, label, number]) => `<button class="${state.section === key ? "active" : ""}" data-section="${key}"><span>${number}</span>${label}${sectionCheck(key) ? "<i>✓</i>" : ""}</button>`).join("");
 }
-function sectionCheck(key) { if (!state.project) return false; return ({ diagnosis: !!state.diagnosis?.current_situation, objectives: state.objectives.length > 1, alternatives: state.alternatives.length > 0, action: state.actions.length > 0, people: state.stakeholders.length > 0, indicators: state.indicators.length > 0, prototype: !!state.prototype?.description, deliverables: state.deliverables.some((d) => d.status === "submitted" || d.status === "approved") })[key] || false; }
+function sectionCheck(key) { if (!state.project) return false; return ({ members: state.participants.length > 0, diagnosis: !!state.diagnosis?.current_situation, objectives: state.objectives.length > 1, alternatives: state.alternatives.length > 0, action: state.actions.length > 0, people: state.stakeholders.length > 0, indicators: state.indicators.length > 0, prototype: !!state.prototype?.description, deliverables: state.deliverables.some((d) => d.status === "submitted" || d.status === "approved") })[key] || false; }
 function renderShell() { const progress = calculateProgress(); el("#overall-progress").textContent = `${progress}%`; el("#overall-bar").style.width = `${progress}%`; }
 function calculateProgress() { const checks = [state.diagnosis?.current_situation, state.objectives.length >= 2, state.alternatives.length, state.actions.length, state.stakeholders.length, state.indicators.length, state.prototype?.description]; return Math.round((checks.filter(Boolean).length / checks.length) * 100); }
 
 function renderSection() {
   if (!state.project) return;
-  const renderers = { overview: renderOverview, diagnosis: renderDiagnosis, objectives: renderObjectives, alternatives: renderAlternatives, action: renderActions, people: renderPeople, indicators: renderIndicators, prototype: renderPrototype, deliverables: renderDeliverables, comments: renderComments };
+  const renderers = { overview: renderOverview, members: renderMembers, diagnosis: renderDiagnosis, objectives: renderObjectives, alternatives: renderAlternatives, action: renderActions, people: renderPeople, indicators: renderIndicators, prototype: renderPrototype, deliverables: renderDeliverables, comments: renderComments };
   el("#project-content").innerHTML = renderers[state.section](); renderShell();
 }
 
@@ -249,6 +251,16 @@ function sectionHead(kicker, title, description) { return `<header class="sectio
 function renderOverview() {
   const next = state.deliverables.find((item) => item.status === "pending" || item.status === "changes_requested");
   return `${sectionHead("Proyecto de aplicación", esc(state.project.title), "Un espacio compartido para convertir una necesidad estratégica en una solución validada.")}<div class="project-metrics"><article><span>Etapa actual</span><strong>${stageName(state.project.stage)}</strong><small>${esc(state.project.status)}</small></article><article><span>Avance académico</span><strong>${calculateProgress()}%</strong><small>7 componentes de la guía</small></article><article><span>Próxima entrega</span><strong>${next ? shortDate(next.due_at) : "Completado"}</strong><small>${next ? esc(next.title) : "Sin pendientes"}</small></article></div><div class="journey"><div class="journey-step active"><b>1</b><div><strong>Formulación</strong><span>Diagnóstico y guía de proyecto</span></div></div><div class="journey-line"></div><div class="journey-step ${state.project.stage !== "formulacion" ? "active" : ""}"><b>2</b><div><strong>Prototipo</strong><span>Diseño, prueba y validación</span></div></div><div class="journey-line"></div><div class="journey-step ${["shark_tank", "completed"].includes(state.project.stage) ? "active" : ""}"><b>3</b><div><strong>Shark tank</strong><span>Pitch de 7 minutos ante jurados</span></div></div></div><form class="section-card project-summary-form" data-form="project"><h3>Presentación general</h3><label>Título<input name="title" required value="${esc(state.project.title)}"></label><label>Alineación estratégica<textarea name="strategic_alignment">${esc(state.project.strategic_alignment)}</textarea></label><label>Resumen ejecutivo<textarea name="executive_summary" placeholder="Explique el propósito y el impacto esperado del proyecto.">${esc(state.project.executive_summary)}</textarea></label><button class="primary-btn">Guardar presentación</button></form>`;
+}
+function renderMembers() {
+  return `${sectionHead("Colaboración", "Integrantes del equipo", "Directorio privado del grupo. Los integrantes y líderes pueden editar el proyecto de forma colaborativa.")}${teamRosterContent()}`;
+}
+function teamRosterContent() {
+  const cards = state.participants.map((participant) => {
+    const displayName = participant.full_name || participant.email || "Sin nombre";
+    return `<article class="team-member-card"><span class="team-member-avatar">${esc(initials(displayName))}</span><div class="team-member-identity"><strong>${esc(displayName)}${participant.is_current_user ? '<em>Usted</em>' : ""}</strong><a href="mailto:${esc(participant.email)}">${esc(participant.email)}</a><small>Se unió ${shortDate(participant.joined_at)}</small></div><div class="team-member-permissions"><span class="role-badge">${esc(memberRoleName(participant.member_role))}</span><b class="${participant.can_edit ? "can-edit" : "read-only"}">${participant.can_edit ? "Puede editar el proyecto" : "Solo lectura"}</b></div></article>`;
+  }).join("");
+  return `<section class="team-roster-card"><header><div><span>Directorio del grupo</span><strong>${state.participants.length}/${state.team.max_members} integrantes</strong></div><small>Nombre y correo visibles únicamente dentro del equipo.</small></header><div class="team-roster-grid">${cards || empty("Todavía no hay integrantes activos en este equipo.")}</div></section>`;
 }
 function renderDiagnosis() { const d = state.diagnosis || {}; return `${sectionHead("Componente 01", "Diagnóstico y situación actual", "Delimite el problema en impacto, ubicación, involucrados, magnitud y perspectiva cronológica.")}<form class="section-card structured-form" data-form="diagnosis"><div class="form-intro"><strong>Problema identificado</strong><span>Use datos, costos, servicio y calidad para sustentar la brecha.</span></div>${area("Situación actual", "current_situation", d.current_situation, "¿Qué ocurre y cuál es la brecha frente al estándar?", true)}${area("Justificación de la mejora", "justification", d.justification)}<div class="dimension-grid">${area("Impacto", "impact", d.impact, "Comparación contra un estándar")}${area("Ubicación física", "physical_location", d.physical_location, "Áreas, unidades, regiones o relaciones afectadas")}${area("Involucrados", "people_involved", d.people_involved, "Personas afectadas o con interés")}${area("Magnitud", "magnitude", d.magnitude, "Impacto absoluto o relativo")}${area("Perspectiva cronológica", "chronology", d.chronology, "Desde cuándo existe y evolución")}${area("Causas raíz", "root_causes", d.root_causes, "Factores que originan y mantienen el problema")}</div>${area("Datos y métricas relevantes", "relevant_data", d.relevant_data)}<div class="three-cols"><label>Impacto económico (COP)<input name="cost_impact" type="number" min="0" value="${d.cost_impact || ""}"></label>${area("Impacto en servicio", "service_impact", d.service_impact)}${area("Impacto en calidad", "quality_impact", d.quality_impact)}</div>${area("Capacidades para efectuar el cambio", "organizational_capabilities", d.organizational_capabilities)}<button class="primary-btn">Guardar diagnóstico</button></form>`; }
 function renderObjectives() { return `${sectionHead("Componente 02", "Objetivos SMART", "Defina un objetivo general y objetivos específicos cuantificables, alcanzables y con fecha.")}<div class="section-grid"><form class="section-card" data-form="objective"><h3>Agregar objetivo</h3><label>Tipo<select name="objective_type"><option value="general">General</option><option value="specific">Específico</option></select></label>${area("Redacción SMART", "statement", "", "Verbo + resultado + medida + fecha", true)}<div class="three-cols"><label>Métrica<input name="metric"></label><label>Meta<input name="target" type="number" step="any"></label><label>Unidad<input name="unit" placeholder="%, días, COP…"></label></div><label>Fecha límite<input name="deadline" type="date"></label><button class="primary-btn">Agregar objetivo</button></form><div class="records-card"><h3>Objetivos del proyecto</h3>${recordList(state.objectives, (item) => `<div><span class="record-type">${item.objective_type === "general" ? "General" : "Específico"}</span><strong>${esc(item.statement)}</strong><small>${item.target ?? "—"} ${esc(item.unit)} · ${shortDate(item.deadline)}</small></div>`, "objective")}</div></div>`; }
@@ -353,6 +365,8 @@ function closeModal() { el("#modal-root").innerHTML = ""; }
 function area(label, name, value = "", placeholder = "", wide = false) { return `<label class="${wide ? "wide" : ""}">${label}<textarea name="${name}" placeholder="${esc(placeholder)}">${esc(value)}</textarea></label>`; }
 function recordList(items, render, type) { return items.length ? `<div class="record-list">${items.map((item) => `<article>${render(item)}<button class="delete-record" data-delete="${type}" data-id="${item.id}">×</button></article>`).join("")}</div>` : empty("Aún no hay registros en este componente."); }
 function empty(message) { return `<div class="empty-state">${esc(message)}</div>`; }
+function initials(value) { return value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U"; }
+function memberRoleName(value) { return ({ lider: "Líder", integrante: "Integrante", observador: "Observador" })[value] || value; }
 function permanentInviteCode() {
   const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   const bytes = crypto.getRandomValues(new Uint8Array(6));
@@ -364,5 +378,5 @@ function emptyToNull(object, names) { const copy = { ...object }; names.forEach(
 function numeric(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
 function roleName(value) { return ({ admin: "Administrador", docente: "Docente", participante: "Participante", jurado: "Jurado", lider: "Líder habilitado" })[value] || value; }
 function recoveryRedirectPresent() { const hash = new URLSearchParams(window.location.hash.slice(1)); const query = new URLSearchParams(window.location.search); return window.portalRecoveryRedirect === true || hash.get("type") === "recovery" || query.get("type") === "recovery"; }
-function humanError(error) { const message = error?.message || "No fue posible completar la operación."; if (/Invalid login/i.test(message)) return "Correo o contraseña incorrectos."; if (/Email not confirmed/i.test(message)) return "Confirme primero su correo electrónico."; if (/Código inválido o vencido/i.test(message)) return "Código no reconocido. Solicite al líder o al administrador un código permanente nuevo."; if (/duplicate key/i.test(message)) return "Ese registro ya existe."; return message; }
+function humanError(error) { const message = error?.message || "No fue posible completar la operación."; if (/Invalid login/i.test(message)) return "Correo o contraseña incorrectos."; if (/Email not confirmed/i.test(message)) return "Confirme primero su correo electrónico."; if (/get_team_participants|schema cache/i.test(message)) return "Falta habilitar el directorio privado del equipo en Supabase. Ejecute supabase/migracion-participantes-equipo.sql."; if (/Código inválido o vencido/i.test(message)) return "Código no reconocido. Solicite al líder o al administrador un código permanente nuevo."; if (/duplicate key/i.test(message)) return "Ese registro ya existe."; return message; }
 })();

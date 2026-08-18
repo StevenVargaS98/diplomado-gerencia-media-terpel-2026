@@ -138,6 +138,9 @@ supabase/migracion-fix-pgcrypto.sql
 supabase/migracion-admin-eliminaciones.sql
   Agrega eliminación de equipos y retiro seguro de personas.
 
+supabase/migracion-participantes-equipo.sql
+  Agrega el directorio privado de integrantes por equipo.
+
 CONFIGURAR-SUPABASE.md
   Guía de instalación y configuración.
 
@@ -538,6 +541,13 @@ Solución:
 - El ingreso continúa limitado por `max_members`; un código permanente no permite superar la capacidad del equipo.
 - Los códigos nuevos omiten caracteres ambiguos como `O`, `0`, `I` y `1`.
 - La base conserva únicamente el hash. El código debe copiarse y guardarse cuando se genera.
+
+### Directorio privado de integrantes
+
+- Cada espacio incorpora la sección `Equipo` con nombre, correo, rol, fecha de ingreso y permiso de edición.
+- Líderes e integrantes activos pueden modificar colaborativamente el proyecto; los observadores permanecen en modo lectura.
+- Los datos personales se obtienen mediante `get_team_participants(uuid)`, que solo responde a integrantes del mismo grupo, administradores y docentes.
+- Las bases existentes deben ejecutar `supabase/migracion-participantes-equipo.sql`.
 
 ### Liderazgo concedido por código
 

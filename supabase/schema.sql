@@ -368,6 +368,48 @@ create or replace function public.can_edit_project(p_project uuid)
 returns boolean language sql stable security definer set search_path = public, pg_temp
 as $$ select exists(select 1 from public.projects where id=p_project and public.can_edit_team(team_id)) $$;
 
+-- Directorio privado del equipo. Expone nombre y correo únicamente a integrantes
+-- del mismo grupo y a facilitadores autorizados.
+create or replace function public.get_team_participants(p_team uuid)
+returns table(
+  profile_id uuid,
+  full_name text,
+  email text,
+  member_role text,
+  joined_at timestamptz,
+  can_edit boolean,
+  is_current_user boolean
+)
+language plpgsql
+stable
+security definer set search_path = ''
+as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Debe iniciar sesión';
+  end if;
+  if not (public.is_facilitator() or public.is_team_member(p_team)) then
+    raise exception 'No autorizado para consultar este equipo';
+  end if;
+
+  return query
+  select
+    p.id,
+    p.full_name,
+    p.email,
+    tm.role,
+    tm.joined_at,
+    (tm.role in ('lider','integrante') and p.status = 'active'),
+    (p.id = auth.uid())
+  from public.team_members tm
+  join public.profiles p on p.id = tm.user_id
+  where tm.team_id = p_team
+    and tm.status = 'active'
+    and p.status = 'active'
+  order by case when tm.role = 'lider' then 0 else 1 end, p.full_name, p.email;
+end;
+$$;
+
 -- Un administrador o docente puede habilitar a un participante para crear su equipo.
 create or replace function public.set_team_leader_permission(p_profile uuid, p_enabled boolean)
 returns void
@@ -696,6 +738,7 @@ revoke execute on function public.set_team_leader_permission(uuid,boolean) from 
 revoke execute on function public.create_team_as_leader(text,text,integer) from public, anon;
 revoke execute on function public.admin_remove_person(uuid) from public, anon;
 revoke execute on function public.admin_delete_team(uuid,text) from public, anon;
+revoke execute on function public.get_team_participants(uuid) from public, anon;
 grant execute on function public.current_global_role() to authenticated;
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.is_facilitator() to authenticated;
@@ -709,6 +752,7 @@ grant execute on function public.set_team_leader_permission(uuid,boolean) to aut
 grant execute on function public.create_team_as_leader(text,text,integer) to authenticated;
 grant execute on function public.admin_remove_person(uuid) to authenticated;
 grant execute on function public.admin_delete_team(uuid,text) to authenticated;
+grant execute on function public.get_team_participants(uuid) to authenticated;
 
 revoke all on all tables in schema public from anon;
 grant select,insert,update,delete on all tables in schema public to authenticated;

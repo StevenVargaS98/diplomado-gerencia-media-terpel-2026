@@ -27,6 +27,7 @@ Después ejecute, en consultas separadas y en este orden:
 
 1. `supabase/migracion-fix-pgcrypto.sql`: corrige el error `function digest(text, unknown) does not exist` al utilizar invitaciones.
 2. `supabase/migracion-admin-eliminaciones.sql`: agrega las operaciones administrativas para eliminar equipos y retirar personas.
+3. `supabase/migracion-participantes-equipo.sql`: permite ver nombre, correo, rol y acceso de los integrantes dentro de su propio equipo.
 
 No es necesario volver a ejecutar `schema.sql`.
 
