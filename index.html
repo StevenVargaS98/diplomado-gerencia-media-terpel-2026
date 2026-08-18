@@ -8,7 +8,7 @@
   <meta property="og:description" content="Del reto estratégico a una solución con impacto.">
   <meta property="og:image" content="og.png">
   <title>Portal | Diplomado de Gerencia Media</title>
-  <link rel="stylesheet" href="styles.css?v=20260817-5">
+  <link rel="stylesheet" href="styles.css?v=20260817-6">
 </head>
 <body class="portal-body">
   <div id="boot-view" class="center-stage"><section class="setup-panel"><div class="setup-icon">GM</div><span class="eyebrow">Iniciando portal</span><h2>Cargando la experiencia académica…</h2><p id="boot-detail">Conectando de forma segura con la base del diplomado.</p></section></div>
@@ -28,6 +28,20 @@
       </div>
     </section>
   </main>
+
+  <div id="password-reset-view" class="center-stage hidden">
+    <section class="setup-panel password-reset-panel">
+      <div class="setup-icon">🔒</div>
+      <span class="eyebrow">Recuperación de acceso</span>
+      <h2>Cambiar contraseña</h2>
+      <p>Escriba una nueva contraseña para su cuenta.</p>
+      <form id="password-reset-form" class="compact-form">
+        <label>Nueva contraseña<input name="password" type="password" minlength="8" autocomplete="new-password" required placeholder="Mínimo 8 caracteres"></label>
+        <label>Confirmar contraseña<input name="confirmation" type="password" minlength="8" autocomplete="new-password" required placeholder="Repita la contraseña"></label>
+        <button class="primary-btn" type="submit">Cambiar contraseña</button>
+      </form>
+    </section>
+  </div>
 
   <div id="join-view" class="center-stage hidden">
     <section class="membership-panel">
@@ -63,6 +77,9 @@
   <div id="modal-root"></div><div id="global-toast" class="toast hidden"></div>
   <script>
     (function () {
+      var recoveryHash = new URLSearchParams(window.location.hash.slice(1));
+      var recoveryQuery = new URLSearchParams(window.location.search);
+      window.portalRecoveryRedirect = recoveryHash.get("type") === "recovery" || recoveryQuery.get("type") === "recovery";
       window.portalScriptError = function (name) {
         var detail = document.getElementById("boot-detail");
         if (detail) detail.textContent = "No se pudo cargar " + name + ". Recargue con Ctrl + F5.";
@@ -81,6 +98,6 @@
     })();
   </script>
   <script src="vendor/supabase.min.js?v=2.112.3" onerror="portalScriptError('Supabase local')"></script>
-  <script src="config.js?v=20260817-5" onerror="portalScriptError('config.js')"></script><script src="portal-core.js?v=20260817-5" onerror="portalScriptError('portal-core.js')"></script><script src="app.js?v=20260817-5" onerror="portalScriptError('app.js')"></script>
+  <script src="config.js?v=20260817-6" onerror="portalScriptError('config.js')"></script><script src="portal-core.js?v=20260817-6" onerror="portalScriptError('portal-core.js')"></script><script src="app.js?v=20260817-6" onerror="portalScriptError('app.js')"></script>
 </body>
 </html>

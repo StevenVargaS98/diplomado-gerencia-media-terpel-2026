@@ -8,6 +8,7 @@ const SECTIONS = [
 ];
 
 const state = { user: null, profile: null, membership: null, team: null, project: null, section: "overview", perspectives: [], diagnosis: null, objectives: [], alternatives: [], actions: [], stakeholders: [], resources: [], indicators: [], prototype: null, deliverables: [], comments: [], realtime: null };
+let recoveryMode = recoveryRedirectPresent();
 
 const el = (selector) => document.querySelector(selector);
 const show = (selector) => el(selector)?.classList.remove("hidden");
@@ -22,10 +23,17 @@ async function initialize() {
       hide("#boot-view"); show("#config-view"); return;
     }
     wireAuth();
+    supabase.auth.onAuthStateChange((event, sessionValue) => {
+      if (event === "PASSWORD_RECOVERY") {
+        recoveryMode = true; showPasswordReset(); return;
+      }
+      if (!sessionValue && !recoveryMode) showAuth();
+    });
     const { data: { session }, error } = await supabase.auth.getSession();
     if (error) throw error;
-    if (session) await enterPortal(session.user); else showAuth();
-    supabase.auth.onAuthStateChange((_event, sessionValue) => { if (!sessionValue) showAuth(); });
+    if (recoveryMode && session) showPasswordReset();
+    else if (session) await enterPortal(session.user);
+    else showAuth();
   } catch (error) {
     showFatal(error);
   }
@@ -39,6 +47,7 @@ function wireAuth() {
   }));
   el("#login-form").addEventListener("submit", login);
   el("#signup-form").addEventListener("submit", signup);
+  el("#password-reset-form").addEventListener("submit", updatePassword);
   el("#join-form").addEventListener("submit", joinTeam);
   el("#leader-team-form").addEventListener("submit", createTeamAsLeader);
   el("#team-invite-btn").addEventListener("click", teamInvitationModal);
@@ -51,14 +60,20 @@ function wireAuth() {
   el("#project-content").addEventListener("change", handleSectionChange);
 }
 
-function showAuth() { hide("#boot-view"); hide("#config-view"); hide("#app-view"); hide("#join-view"); show("#auth-view"); }
+function showAuth() { hide("#boot-view"); hide("#config-view"); hide("#app-view"); hide("#join-view"); hide("#password-reset-view"); show("#auth-view"); }
+
+function showPasswordReset() {
+  hide("#boot-view"); hide("#config-view"); hide("#auth-view"); hide("#app-view"); hide("#join-view");
+  show("#password-reset-view");
+  window.setTimeout(() => el('#password-reset-form [name="password"]')?.focus(), 50);
+}
 
 function fatalPanel(message) {
   return `<section class="setup-panel"><div class="setup-icon">!</div><span class="eyebrow">No se pudo iniciar</span><h2>El portal encontró un inconveniente</h2><p>${esc(message)}</p><button class="primary-btn" onclick="location.reload()">Intentar nuevamente</button><a class="text-btn button-link" href="preview.html">Abrir la demostración</a></section>`;
 }
 
 function showFatal(error) {
-  hide("#auth-view"); hide("#app-view"); hide("#join-view"); hide("#config-view");
+  hide("#auth-view"); hide("#app-view"); hide("#join-view"); hide("#password-reset-view"); hide("#config-view");
   const message = error?.message || "Error inesperado al conectar el portal.";
   el("#boot-view").innerHTML = fatalPanel(message); show("#boot-view");
 }
@@ -79,6 +94,20 @@ async function signup(event) {
   if (data.session) await enterPortal(data.user); else toast("Revise su correo y confirme la cuenta antes de ingresar.");
 }
 
+async function updatePassword(event) {
+  event.preventDefault(); const button = event.submitter; const values = formData(event.currentTarget);
+  if (values.password !== values.confirmation) return toast("Las contraseñas no coinciden.", "error");
+  if (values.password.length < 8) return toast("La contraseña debe tener al menos 8 caracteres.", "error");
+  setBusy(button, true, "Cambiando…");
+  const { error } = await supabase.auth.updateUser({ password: values.password });
+  if (error) { setBusy(button, false); return toast(humanError(error), "error"); }
+  recoveryMode = false;
+  window.history.replaceState({}, "", new URL("index.html", window.location.href).href);
+  await supabase.auth.signOut();
+  event.currentTarget.reset(); showAuth();
+  toast("Contraseña actualizada. Ya puede ingresar con la nueva contraseña.");
+}
+
 async function forgotPassword() {
   const email = el('#login-form [name="email"]').value.trim();
   if (!email) return toast("Escriba primero su correo electrónico.", "error");
@@ -87,7 +116,7 @@ async function forgotPassword() {
 }
 
 async function enterPortal(user) {
-  state.user = user; hide("#boot-view"); hide("#auth-view");
+  state.user = user; hide("#boot-view"); hide("#auth-view"); hide("#password-reset-view");
   const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (profileError || !profile) return showFatal(profileError || new Error("No se encontró el perfil de esta cuenta.")); state.profile = profile;
   if (profile.global_role === "jurado") { window.location.href = "jury.html"; return; }
@@ -314,5 +343,6 @@ function statusName(value) { return ({ pending: "Pendiente", submitted: "Entrega
 function emptyToNull(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
 function numeric(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
 function roleName(value) { return ({ admin: "Administrador", docente: "Docente", participante: "Participante", jurado: "Jurado", lider: "Líder habilitado" })[value] || value; }
+function recoveryRedirectPresent() { const hash = new URLSearchParams(window.location.hash.slice(1)); const query = new URLSearchParams(window.location.search); return window.portalRecoveryRedirect === true || hash.get("type") === "recovery" || query.get("type") === "recovery"; }
 function humanError(error) { const message = error?.message || "No fue posible completar la operación."; if (/Invalid login/i.test(message)) return "Correo o contraseña incorrectos."; if (/Email not confirmed/i.test(message)) return "Confirme primero su correo electrónico."; if (/duplicate key/i.test(message)) return "Ese registro ya existe."; return message; }
 })();

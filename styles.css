@@ -186,6 +186,7 @@ button { cursor: pointer; }
 .compact-form { display:grid;gap:13px;margin-top:18px; }.compact-form .primary-btn { justify-self:start; }
 .compact-form select { width:100%;border:1px solid var(--line);background:white;border-radius:11px;padding:11px 12px;outline:0;color:var(--ink);text-transform:none;letter-spacing:0; }
 .membership-footer { display:flex;align-items:center;justify-content:flex-end;gap:9px;padding-top:4px; }
+.password-reset-panel { width:min(460px,100%); }.password-reset-panel .compact-form { text-align:left;margin-top:24px; }.password-reset-panel .primary-btn { width:100%;justify-content:center;margin-top:4px; }
 
 .auth-layout { min-height:100vh;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(420px,.85fr); }
 .auth-story { background:var(--navy);color:white;padding:clamp(36px,6vw,85px);display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden; }
