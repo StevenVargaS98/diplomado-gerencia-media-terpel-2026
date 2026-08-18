@@ -40,7 +40,26 @@
   </div>
 
   <div id="modal-root"></div><div id="global-toast" class="toast hidden"></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=20260817"></script><script src="portal-core.js?v=20260817"></script><script src="app.js?v=20260817"></script>
+  <script>
+    (function () {
+      window.portalScriptError = function (name) {
+        var detail = document.getElementById("boot-detail");
+        if (detail) detail.textContent = "No se pudo cargar " + name + ". Recargue con Ctrl + F5.";
+      };
+      window.addEventListener("error", function (event) {
+        var detail = document.getElementById("boot-detail");
+        if (detail && event.message) detail.textContent = "Error de inicio: " + event.message;
+      });
+      window.setTimeout(function () {
+        var boot = document.getElementById("boot-view");
+        var detail = document.getElementById("boot-detail");
+        if (boot && !boot.classList.contains("hidden") && detail && detail.textContent.indexOf("Conectando") === 0) {
+          detail.textContent = "La carga está tardando demasiado. Presione Ctrl + F5; si continúa, informe este mensaje.";
+        }
+      }, 6000);
+    })();
+  </script>
+  <script src="vendor/supabase.min.js?v=2.112.3" onerror="portalScriptError('Supabase local')"></script>
+  <script src="config.js?v=20260817-3" onerror="portalScriptError('config.js')"></script><script src="portal-core.js?v=20260817-3" onerror="portalScriptError('portal-core.js')"></script><script src="app.js?v=20260817-3" onerror="portalScriptError('app.js')"></script>
 </body>
 </html>
