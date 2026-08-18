@@ -2,7 +2,7 @@
 
 ## Portal del Diplomado de Gerencia Media
 
-Última actualización: 17 de agosto de 2026  
+Última actualización: 18 de agosto de 2026
 Repositorio: `StevenVargaS98/diplomado-gerencia-media-terpel-2026`  
 Rama de publicación: `main`  
 Sitio público: <https://stevenvargas98.github.io/diplomado-gerencia-media-terpel-2026/>  
@@ -131,6 +131,12 @@ supabase/seed.sql
 
 supabase/migracion-acceso-y-lideres.sql
   Migración de la base existente al nuevo flujo de acceso y liderazgo.
+
+supabase/migracion-fix-pgcrypto.sql
+  Corrige la resolución de digest() dentro de las funciones de invitación.
+
+supabase/migracion-admin-eliminaciones.sql
+  Agrega eliminación de equipos y retiro seguro de personas.
 
 CONFIGURAR-SUPABASE.md
   Guía de instalación y configuración.
@@ -288,6 +294,13 @@ No puede crear un segundo equipo si ya pertenece a uno activo.
 
 Los docentes solo pueden alternar entre `participante` y `lider`. No pueden conceder roles administrativos.
 
+El administrador también puede:
+
+- Eliminar definitivamente un equipo después de escribir su nombre exacto. La operación elimina archivos, proyecto, formularios, integrantes e invitaciones.
+- Eliminar una persona del portal después de confirmar su correo. La cuenta queda bloqueada, se retiran sus membresías y desaparece del panel, pero sus aportes se conservan para mantener la trazabilidad académica.
+
+La eliminación física de la identidad en Supabase Auth se realiza manualmente desde Authentication → Users cuando la política institucional permita borrar también ese registro.
+
 ### Jurado
 
 Al iniciar sesión con el rol `jurado`, el portal redirige a `jury.html`. Allí únicamente aparecen los proyectos asignados y su rúbrica.
@@ -396,6 +409,8 @@ La URL local se conserva para pruebas. La pública es necesaria para que los cor
 ### Acciones que deben confirmarse
 
 - Ejecutar `supabase/migracion-acceso-y-lideres.sql` en la base ya instalada.
+- Ejecutar `supabase/migracion-fix-pgcrypto.sql` para corregir `digest()`.
+- Ejecutar `supabase/migracion-admin-eliminaciones.sql`.
 - Confirmar que la cuenta administradora aparezca como `admin` y `active`.
 - Configurar las redirecciones públicas de recuperación.
 - Confirmar si `supabase/crear-20-equipos.sql` fue ejecutado después de su última actualización.
@@ -480,6 +495,18 @@ Solución:
 - Se separaron autenticación y membresía.
 - Cualquier cuenta puede entrar sin equipo.
 - El código se usa después y únicamente para unirse como integrante.
+
+### Error `function digest(text, unknown) does not exist`
+
+Causa:
+
+- Supabase aloja normalmente `pgcrypto` en el esquema `extensions`.
+- Las funciones de invitación tenían un `search_path` restringido a `public` y `pg_temp`.
+
+Solución:
+
+- Se añadió `extensions` al `search_path` de `join_with_invitation` y `create_invitation`.
+- Se creó `supabase/migracion-fix-pgcrypto.sql` para corregir bases ya instaladas.
 
 ### Liderazgo concedido por código
 
@@ -654,6 +681,8 @@ Medidas pendientes o recomendadas:
 
 - [ ] Registrar la cuenta administradora si aún no existe.
 - [ ] Ejecutar `supabase/migracion-acceso-y-lideres.sql`.
+- [ ] Ejecutar `supabase/migracion-fix-pgcrypto.sql`.
+- [ ] Ejecutar `supabase/migracion-admin-eliminaciones.sql`.
 - [ ] Confirmar `admin | active` para el correo administrador.
 - [ ] Configurar las Redirect URLs públicas en Supabase.
 - [ ] Confirmar si se crearán los 20 equipos anticipadamente o bajo demanda.

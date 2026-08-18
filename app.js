@@ -119,6 +119,9 @@ async function enterPortal(user) {
   state.user = user; hide("#boot-view"); hide("#auth-view"); hide("#password-reset-view");
   const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (profileError || !profile) return showFatal(profileError || new Error("No se encontró el perfil de esta cuenta.")); state.profile = profile;
+  if (profile.status !== "active" || profile.deleted_at) {
+    await supabase.auth.signOut(); showAuth(); toast("Esta cuenta fue deshabilitada. Consulte al administrador.", "error"); return;
+  }
   if (profile.global_role === "jurado") { window.location.href = "jury.html"; return; }
   const { data: membership } = await supabase.from("team_members").select("role,status,team:academic_teams(id,name,modality,max_members,cohort:cohorts(name,year))").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
   if (!membership?.team) {

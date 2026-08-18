@@ -3,6 +3,9 @@
 
 begin;
 
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
+
 alter table public.profiles
   drop constraint if exists profiles_global_role_check;
 alter table public.profiles
@@ -171,7 +174,7 @@ $create_team$;
 create or replace function public.join_with_invitation(raw_code text, participant_name text)
 returns uuid
 language plpgsql
-security definer set search_path = public, pg_temp
+security definer set search_path = extensions, public, pg_temp
 as $join_team$
 declare
   invitation_row public.invitations%rowtype;
@@ -221,7 +224,7 @@ $join_team$;
 create or replace function public.create_invitation(p_team uuid, raw_code text, p_role text, p_max_uses integer, p_expires_at timestamptz)
 returns uuid
 language plpgsql
-security definer set search_path = public, pg_temp
+security definer set search_path = extensions, public, pg_temp
 as $create_invite$
 declare new_id uuid;
 begin

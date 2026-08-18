@@ -23,6 +23,13 @@ Esta guía convierte el paquete estático en un portal multiusuario con informac
 
 No vuelva a ejecutar todo el esquema. Abra una consulta nueva, copie `supabase/migracion-acceso-y-lideres.sql` y pulse **Run**. Esta migración permite entrar sin equipo, agrega el rol `lider`, habilita la creación segura de equipos y configura la cuenta administradora definida para el diplomado.
 
+Después ejecute, en consultas separadas y en este orden:
+
+1. `supabase/migracion-fix-pgcrypto.sql`: corrige el error `function digest(text, unknown) does not exist` al utilizar invitaciones.
+2. `supabase/migracion-admin-eliminaciones.sql`: agrega las operaciones administrativas para eliminar equipos y retirar personas.
+
+No es necesario volver a ejecutar `schema.sql`.
+
 ## 3. Configurar el registro
 
 En **Authentication → Sign In / Providers → Email**:

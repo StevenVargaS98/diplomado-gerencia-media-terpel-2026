@@ -55,6 +55,8 @@ styles.css                  Diseño adaptable e impresión
 supabase/schema.sql         Base, funciones, roles y RLS
 supabase/seed.sql           Cohorte, fechas y perspectivas
 supabase/migracion-acceso-y-lideres.sql Actualización para bases ya instaladas
+supabase/migracion-fix-pgcrypto.sql Corrección de códigos de invitación
+supabase/migracion-admin-eliminaciones.sql Eliminación administrativa segura
 CONFIGURAR-SUPABASE.md      Instalación paso a paso
 ARQUITECTURA-Y-SEGURIDAD.md Diseño técnico y modelo de permisos
 ```
@@ -66,6 +68,8 @@ Siga [CONFIGURAR-SUPABASE.md](CONFIGURAR-SUPABASE.md). No necesita servidor prop
 Para conocer el historial de decisiones, el estado actual, los procedimientos de operación y los pendientes, consulte [MEMORIA-DEL-PROYECTO.md](MEMORIA-DEL-PROYECTO.md).
 
 Si la base ya estaba instalada con la primera versión, registre primero la cuenta `ing.stevenh.vargas@gmail.com` y ejecute `supabase/migracion-acceso-y-lideres.sql` antes de publicar esta versión. La migración asigna esa cuenta existente como administradora, agrega el rol `lider` y revoca los códigos antiguos de liderazgo.
+
+Para una base instalada antes del 18 de agosto de 2026, ejecute después `supabase/migracion-fix-pgcrypto.sql` y `supabase/migracion-admin-eliminaciones.sql`. La primera corrige la resolución de `digest()` en Supabase; la segunda habilita al administrador para eliminar equipos y retirar personas sin destruir la trazabilidad académica.
 
 ## Vista local sin configurar Supabase
 

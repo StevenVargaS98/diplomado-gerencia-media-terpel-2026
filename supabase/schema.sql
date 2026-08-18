@@ -2,7 +2,8 @@
 -- Ejecutar una sola vez en Supabase > SQL Editor.
 -- Todas las tablas expuestas tienen Row Level Security (RLS).
 
-create extension if not exists pgcrypto;
+create schema if not exists extensions;
+create extension if not exists pgcrypto with schema extensions;
 
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -11,6 +12,7 @@ create table if not exists public.profiles (
   organization text not null default 'Organización Terpel',
   global_role text not null default 'participante' check (global_role in ('admin','docente','participante','jurado','lider')),
   status text not null default 'active' check (status in ('pending','active','blocked')),
+  deleted_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -304,7 +306,7 @@ for each row execute function public.handle_new_user();
 
 create or replace function public.current_global_role()
 returns text language sql stable security definer set search_path = public, pg_temp
-as $$ select global_role from public.profiles where id = auth.uid() and status = 'active' $$;
+as $$ select global_role from public.profiles where id = auth.uid() and status = 'active' and deleted_at is null $$;
 
 create or replace function public.protect_profile_privileges()
 returns trigger
@@ -483,7 +485,7 @@ $$;
 create or replace function public.join_with_invitation(raw_code text, participant_name text)
 returns uuid
 language plpgsql
-security definer set search_path = public, pg_temp
+security definer set search_path = extensions, public, pg_temp
 as $$
 declare
   invitation_row public.invitations%rowtype;
@@ -524,7 +526,7 @@ $$;
 create or replace function public.create_invitation(p_team uuid, raw_code text, p_role text, p_max_uses integer, p_expires_at timestamptz)
 returns uuid
 language plpgsql
-security definer set search_path = public, pg_temp
+security definer set search_path = extensions, public, pg_temp
 as $$
 declare new_id uuid;
 begin
@@ -537,6 +539,69 @@ begin
   values(p_team,encode(digest(upper(trim(raw_code)),'sha256'),'hex'),p_role,greatest(p_max_uses,1),p_expires_at,auth.uid())
   returning id into new_id;
   return new_id;
+end;
+$$;
+
+-- Eliminación administrativa de una persona: bloquea la cuenta y conserva la
+-- trazabilidad académica. La eliminación física de Auth se hace desde Supabase.
+create or replace function public.admin_remove_person(p_profile uuid)
+returns void
+language plpgsql
+security definer set search_path = public, pg_temp
+as $$
+begin
+  if not public.is_admin() then
+    raise exception 'Solo un administrador puede eliminar personas';
+  end if;
+  if p_profile = auth.uid() then
+    raise exception 'No puede eliminar su propia cuenta administradora';
+  end if;
+  if not exists(select 1 from public.profiles where id = p_profile and deleted_at is null) then
+    raise exception 'La persona no existe o ya fue eliminada';
+  end if;
+
+  update public.academic_teams
+  set leader_id = null, status = case when status = 'active' then 'forming' else status end
+  where leader_id = p_profile;
+
+  update public.team_members
+  set status = 'removed'
+  where user_id = p_profile and status <> 'removed';
+
+  delete from public.jury_assignments where reviewer_id = p_profile;
+
+  update public.profiles
+  set global_role = 'participante', status = 'blocked', deleted_at = now(), updated_at = now()
+  where id = p_profile;
+end;
+$$;
+
+-- Eliminación irreversible de un equipo y de todos sus registros académicos.
+create or replace function public.admin_delete_team(p_team uuid, p_confirmation text)
+returns void
+language plpgsql
+security definer set search_path = public, pg_temp
+as $$
+declare
+  team_name text;
+begin
+  if not public.is_admin() then
+    raise exception 'Solo un administrador puede eliminar equipos';
+  end if;
+
+  select name into team_name
+  from public.academic_teams
+  where id = p_team
+  for update;
+
+  if team_name is null then
+    raise exception 'El equipo no existe';
+  end if;
+  if trim(coalesce(p_confirmation, '')) <> team_name then
+    raise exception 'La confirmación no coincide con el nombre del equipo';
+  end if;
+
+  delete from public.academic_teams where id = p_team;
 end;
 $$;
 
@@ -620,6 +685,8 @@ create policy "deliverable files create" on storage.objects for insert to authen
 with check(bucket_id='deliverables' and public.can_edit_team(((storage.foldername(name))[1])::uuid));
 create policy "deliverable files update" on storage.objects for update to authenticated
 using(bucket_id='deliverables' and public.can_edit_team(((storage.foldername(name))[1])::uuid));
+create policy "deliverable files admin delete" on storage.objects for delete to authenticated
+using(bucket_id='deliverables' and public.is_admin());
 
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 revoke execute on function public.protect_profile_privileges() from public, anon, authenticated;
@@ -627,6 +694,8 @@ revoke execute on function public.join_with_invitation(text,text) from public, a
 revoke execute on function public.create_invitation(uuid,text,text,integer,timestamptz) from public, anon;
 revoke execute on function public.set_team_leader_permission(uuid,boolean) from public, anon;
 revoke execute on function public.create_team_as_leader(text,text,integer) from public, anon;
+revoke execute on function public.admin_remove_person(uuid) from public, anon;
+revoke execute on function public.admin_delete_team(uuid,text) from public, anon;
 grant execute on function public.current_global_role() to authenticated;
 grant execute on function public.is_admin() to authenticated;
 grant execute on function public.is_facilitator() to authenticated;
@@ -638,6 +707,8 @@ grant execute on function public.join_with_invitation(text,text) to authenticate
 grant execute on function public.create_invitation(uuid,text,text,integer,timestamptz) to authenticated;
 grant execute on function public.set_team_leader_permission(uuid,boolean) to authenticated;
 grant execute on function public.create_team_as_leader(text,text,integer) to authenticated;
+grant execute on function public.admin_remove_person(uuid) to authenticated;
+grant execute on function public.admin_delete_team(uuid,text) to authenticated;
 
 revoke all on all tables in schema public from anon;
 grant select,insert,update,delete on all tables in schema public to authenticated;
