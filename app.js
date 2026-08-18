@@ -1,4 +1,4 @@
-const { configured, supabase, escapeHtml: esc, shortDate, money, toast, setBusy, setupPanel } = window.Portal;
+const { configured, libraryAvailable, supabase, escapeHtml: esc, shortDate, money, toast, setBusy, setupPanel } = window.Portal;
 
 const SECTIONS = [
   ["overview", "Inicio", "00"], ["diagnosis", "Diagnóstico", "01"], ["objectives", "Objetivos SMART", "02"],
@@ -15,11 +15,19 @@ const formData = (form) => Object.fromEntries(new FormData(form));
 document.addEventListener("DOMContentLoaded", initialize);
 
 async function initialize() {
-  if (!configured) { el("#config-view").innerHTML = setupPanel(); show("#config-view"); return; }
-  wireAuth();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (session) await enterPortal(session.user); else showAuth();
-  supabase.auth.onAuthStateChange((_event, sessionValue) => { if (!sessionValue) showAuth(); });
+  try {
+    if (!configured || !supabase) {
+      el("#config-view").innerHTML = libraryAvailable ? setupPanel() : fatalPanel("No se pudo cargar el componente seguro de conexión. Compruebe su acceso a cdn.jsdelivr.net y recargue la página.");
+      hide("#boot-view"); show("#config-view"); return;
+    }
+    wireAuth();
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (session) await enterPortal(session.user); else showAuth();
+    supabase.auth.onAuthStateChange((_event, sessionValue) => { if (!sessionValue) showAuth(); });
+  } catch (error) {
+    showFatal(error);
+  }
 }
 
 function wireAuth() {
@@ -40,7 +48,17 @@ function wireAuth() {
   el("#project-content").addEventListener("change", handleSectionChange);
 }
 
-function showAuth() { hide("#config-view"); hide("#app-view"); hide("#join-view"); show("#auth-view"); }
+function showAuth() { hide("#boot-view"); hide("#config-view"); hide("#app-view"); hide("#join-view"); show("#auth-view"); }
+
+function fatalPanel(message) {
+  return `<section class="setup-panel"><div class="setup-icon">!</div><span class="eyebrow">No se pudo iniciar</span><h2>El portal encontró un inconveniente</h2><p>${esc(message)}</p><button class="primary-btn" onclick="location.reload()">Intentar nuevamente</button><a class="text-btn button-link" href="preview.html">Abrir la demostración</a></section>`;
+}
+
+function showFatal(error) {
+  hide("#auth-view"); hide("#app-view"); hide("#join-view"); hide("#config-view");
+  const message = error?.message || "Error inesperado al conectar el portal.";
+  el("#boot-view").innerHTML = fatalPanel(message); show("#boot-view");
+}
 
 async function login(event) {
   event.preventDefault(); const button = event.submitter; setBusy(button, true, "Ingresando…");
@@ -67,9 +85,9 @@ async function forgotPassword() {
 }
 
 async function enterPortal(user) {
-  state.user = user; hide("#auth-view");
+  state.user = user; hide("#boot-view"); hide("#auth-view");
   const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-  if (profileError) return toast(humanError(profileError), "error"); state.profile = profile;
+  if (profileError || !profile) return showFatal(profileError || new Error("No se encontró el perfil de esta cuenta.")); state.profile = profile;
   if (profile.global_role === "jurado") { window.location.href = "jury.html"; return; }
   const { data: membership } = await supabase.from("team_members").select("role,status,team:academic_teams(id,name,modality,max_members,cohort:cohorts(name,year))").eq("user_id", user.id).eq("status", "active").maybeSingle();
   if (!membership?.team) {

@@ -1,7 +1,8 @@
 (function () {
   const config = window.PORTAL_CONFIG || {};
   const configured = /^https:\/\/.+\.supabase\.co$/.test(config.supabaseUrl || "") && !String(config.supabasePublishableKey || "").includes("REEMPLAZAR");
-  const client = configured ? window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
+  const libraryAvailable = typeof window.supabase?.createClient === "function";
+  const client = configured && libraryAvailable ? window.supabase.createClient(config.supabaseUrl, config.supabasePublishableKey, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   }) : null;
 
@@ -34,5 +35,5 @@
     return `<section class="setup-panel"><div class="setup-icon">DB</div><span class="eyebrow">Configuración requerida</span><h2>Conecte la base académica</h2><p>El portal está construido, pero todavía no tiene un proyecto Supabase asociado. Configure la <strong>Project URL</strong> y la <strong>Publishable key</strong> en <code>config.js</code>.</p><div class="security-note"><strong>Importante:</strong> la publishable key puede estar en GitHub Pages. La seguridad está en las políticas RLS. Nunca use aquí la clave <code>service_role</code>.</div><a class="primary-btn button-link" href="CONFIGURAR-SUPABASE.md">Ver instrucciones</a></section>`;
   }
 
-  window.Portal = { config, configured, supabase: client, escapeHtml, shortDate, money, uuid, toast, setBusy, setupPanel };
+  window.Portal = { config, configured, libraryAvailable, supabase: client, escapeHtml, shortDate, money, uuid, toast, setBusy, setupPanel };
 })();
