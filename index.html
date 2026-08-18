@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Portal académico colaborativo del Diplomado de Gerencia Media">
+  <meta property="og:title" content="Diplomado de Gerencia Media">
+  <meta property="og:description" content="Del reto estratégico a una solución con impacto.">
+  <meta property="og:image" content="og.png">
+  <title>Portal | Diplomado de Gerencia Media</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="portal-body">
+  <div id="config-view" class="center-stage hidden"></div>
+
+  <main id="auth-view" class="auth-layout hidden">
+    <section class="auth-story">
+      <div class="program-brand"><span class="program-mark">GM</span><div><strong>Diplomado de Gerencia Media</strong><small>Proyecto de aplicación · 2026</small></div></div>
+      <div class="auth-copy"><span class="eyebrow light">Experiencia académica colaborativa</span><h1>Del reto estratégico<br>a una solución con <em>impacto.</em></h1><p>Formule el proyecto, diseñe el prototipo y prepare el pitch final junto con su equipo.</p><div class="stage-chips"><span>01 Formulación</span><span>02 Prototipo</span><span>03 Shark tank</span></div></div>
+      <div class="auth-deadline"><span>Próximo hito</span><strong>Formulación del proyecto</strong><time>17 de septiembre</time></div>
+    </section>
+    <section class="auth-access">
+      <div class="auth-card">
+        <div class="auth-tabs"><button class="auth-tab active" data-auth-tab="login">Ingresar</button><button class="auth-tab" data-auth-tab="signup">Crear cuenta</button></div>
+        <form id="login-form" class="auth-form"><h2>Bienvenido de nuevo</h2><p>Continúe el trabajo con su equipo.</p><label>Correo electrónico<input name="email" type="email" required autocomplete="username" placeholder="nombre@correo.com"></label><label>Contraseña<input name="password" type="password" required autocomplete="current-password" minlength="8" placeholder="••••••••"></label><button class="primary-btn" type="submit">Ingresar al portal →</button><button id="forgot-password" class="text-btn" type="button">Olvidé mi contraseña</button></form>
+        <form id="signup-form" class="auth-form hidden"><h2>Crear cuenta académica</h2><p>Necesita el código entregado por su líder o docente.</p><label>Nombre completo<input name="full_name" required autocomplete="name"></label><label>Correo electrónico<input name="email" type="email" required autocomplete="email"></label><label>Contraseña<input name="password" type="password" required minlength="8" autocomplete="new-password"></label><label>Código de equipo<input name="invitation" required autocomplete="off" placeholder="GERENCIA-2026-XXX"></label><button class="primary-btn" type="submit">Crear mi cuenta →</button><small class="form-help">Recibirá un correo de confirmación antes de ingresar.</small></form>
+      </div>
+    </section>
+  </main>
+
+  <div id="join-view" class="center-stage hidden"><section class="setup-panel"><span class="eyebrow">Último paso</span><h2>Únase a su equipo</h2><p>Su cuenta ya está activa. Ingrese el código de invitación asignado.</p><form id="join-form" class="compact-form"><label>Nombre completo<input name="full_name" required></label><label>Código de equipo<input name="invitation" required></label><button class="primary-btn">Vincularme al equipo</button></form><button class="text-btn" data-signout>Salir</button></section></div>
+
+  <div id="app-view" class="portal-shell hidden">
+    <header class="portal-topbar"><div class="program-brand dark"><span class="program-mark">GM</span><div><strong>Diplomado de Gerencia Media</strong><small id="team-label">Proyecto de aplicación</small></div></div><div class="top-actions"><span class="save-state"><i></i>Datos protegidos</span><a id="admin-link" class="admin-link hidden" href="admin.html">Administración</a><span id="profile-name" class="user-pill"></span><button class="text-btn" data-signout>Salir</button></div></header>
+    <div class="portal-workspace">
+      <aside class="course-sidebar"><div class="course-progress"><span>Progreso del proyecto</span><strong id="overall-progress">0%</strong><div class="progress-track"><div id="overall-bar" class="progress-fill"></div></div></div><nav id="course-nav" class="course-nav"></nav><div class="guide-card"><span>Guía académica</span><strong>7 componentes</strong><p>La estructura sigue los documentos oficiales del diplomado.</p><button id="print-project" class="ghost-btn">Vista de entrega</button></div></aside>
+      <main class="course-main"><div id="project-empty" class="hidden"></div><div id="project-content"></div></main>
+    </div>
+  </div>
+
+  <div id="modal-root"></div><div id="global-toast" class="toast hidden"></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script><script src="portal-core.js"></script><script src="app.js"></script>
+</body>
+</html>
