@@ -792,3 +792,13 @@ El siguiente punto crítico no es agregar más interfaz: es confirmar la migraci
 ## 23. Identidad visual institucional
 
 La identidad visible del portal usa el nombre **Diplomado en Habilidades de Gerencia Media - Organización Terpel** y el archivo `assets/logo-terpel.png`. El nombre y el logotipo se muestran en el inicio de sesión, el espacio de los equipos, la administración, el panel de jurados y la demostración local. El mismo recurso funciona como icono de las páginas.
+
+---
+
+## 24. Descarga del borrador Word
+
+El portal ofrece el botón **Descargar borrados** en la tarjeta lateral de la guía y al final de la sección Entregables. El archivo `.docx` se genera en el navegador con la información guardada del proyecto: presentación general, integrantes, diagnóstico, objetivos, alternativas, plan de acción, involucrados, recursos, indicadores, prototipo, entregables y comentarios.
+
+La generación usa `word-export.js`, la copia local de JSZip y `assets/plantilla-borrador-terpel.docx`. La plantilla se obtuvo del archivo visual de referencia, pero fue sanitizada antes de publicarse: se eliminó por completo el cuerpo contractual y los metadatos personales. Solo permanecen los estilos, la fuente Terpel Sans de 9 puntos, los márgenes, el encabezado y las imágenes institucionales. El documento final es editable y los campos todavía vacíos aparecen como **Por completar**.
+
+Este cambio no requiere migraciones ni modificaciones en Supabase. El borrador contiene únicamente la información que la sesión autenticada ya puede consultar y no se almacena nuevamente en GitHub ni en otra ubicación pública.

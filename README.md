@@ -13,6 +13,7 @@ Portal académico colaborativo preparado para **GitHub Pages + Supabase**. Convi
 - Desarrollo y validación del prototipo.
 - Entregables privados con retroalimentación de docentes.
 - Comentarios colaborativos e historial de actividad.
+- Descarga de un borrador Word editable con la información guardada en todos los frentes.
 - Preparación y evaluación de la presentación tipo *shark tank*.
 - Administración separada para equipos, participantes, entregas y jurados.
 
@@ -48,11 +49,15 @@ admin.html                  Gestión de administradores y docentes
 jury.html                   Evaluación privada del panel de jurados
 assets/logo-terpel.png      Identidad visual utilizada en el portal
 app.js                      Flujo académico y colaboración
+word-export.js              Generación local del borrador Word
 admin.js                    Gestión académica
 jury.js                     Rúbrica y valoración de proyectos
 portal-core.js              Conexión y utilidades compartidas
 config.js                   URL y publishable key de Supabase
 styles.css                  Diseño adaptable e impresión
+assets/plantilla-borrador-terpel.docx Plantilla Word sanitizada con formato y marca
+vendor/jszip.min.js         Generador ZIP local utilizado para construir el DOCX
+vendor/JSZIP-LICENSE.markdown Licencia de JSZip
 supabase/schema.sql         Base, funciones, roles y RLS
 supabase/seed.sql           Cohorte, fechas y perspectivas
 supabase/migracion-acceso-y-lideres.sql Actualización para bases ya instaladas
@@ -88,3 +93,5 @@ Luego abra `http://127.0.0.1:8080/preview.html`. La barra superior permite recor
 ## Principio de seguridad
 
 El HTML, CSS, JavaScript y la `Publishable key` son públicos porque GitHub Pages es estático. Los datos no son públicos: cada consulta se valida en PostgreSQL mediante RLS. La clave `service_role` no se usa ni se incluye en este proyecto.
+
+La plantilla Word publicada está sanitizada: conserva estilos, fuente, tamaños, márgenes, encabezado e imágenes de marca, pero no contiene el texto contractual del documento usado como referencia. El borrador se arma únicamente en el navegador con los datos que el usuario autenticado ya puede consultar.

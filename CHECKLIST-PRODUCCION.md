@@ -9,6 +9,7 @@
 - [ ] Site URL y Redirect URLs configuradas.
 - [ ] Primer administrador promovido mediante SQL.
 - [ ] Bucket `deliverables` aparece como privado.
+- [ ] El botón `Descargar borrados` genera un `.docx` editable con encabezado, fuente Terpel Sans, tablas y datos del equipo.
 - [ ] Realtime activo para proyectos, acciones, comentarios y entregables.
 
 ## Seguridad
