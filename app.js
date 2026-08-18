@@ -7,7 +7,7 @@ const SECTIONS = [
   ["indicators", "Indicadores", "06"], ["prototype", "Prototipo", "P"], ["deliverables", "Entregables", "E"], ["comments", "Comentarios", "C"],
 ];
 
-const state = { user: null, profile: null, membership: null, team: null, project: null, section: "overview", perspectives: [], diagnosis: null, objectives: [], alternatives: [], actions: [], stakeholders: [], resources: [], indicators: [], prototype: null, deliverables: [], comments: [], realtime: null };
+const state = { user: null, profile: null, membership: null, team: null, project: null, section: "overview", perspectives: [], diagnosis: null, objectives: [], alternatives: [], actions: [], stakeholders: [], resources: [], indicators: [], prototype: null, deliverables: [], comments: [], realtime: null, administrativeAccess: false };
 let recoveryMode = recoveryRedirectPresent();
 
 const el = (selector) => document.querySelector(selector);
@@ -123,6 +123,16 @@ async function enterPortal(user) {
     await supabase.auth.signOut(); showAuth(); toast("Esta cuenta fue deshabilitada. Consulte al administrador.", "error"); return;
   }
   if (profile.global_role === "jurado") { window.location.href = "jury.html"; return; }
+  const requestedTeamId = new URLSearchParams(window.location.search).get("team");
+  state.administrativeAccess = false;
+  if (requestedTeamId && profile.global_role === "admin") {
+    const { data: requestedTeam, error: requestedTeamError } = await supabase.from("academic_teams").select("id,name,modality,max_members,cohort:cohorts(name,year)").eq("id", requestedTeamId).maybeSingle();
+    if (requestedTeamError || !requestedTeam) return showFatal(requestedTeamError || new Error("El equipo solicitado no existe."));
+    state.administrativeAccess = true;
+    state.membership = { role: "administrador", status: "active" };
+    state.team = requestedTeam;
+    await loadWorkspace(); hide("#join-view"); show("#app-view"); return;
+  }
   const { data: membership } = await supabase.from("team_members").select("role,status,team:academic_teams(id,name,modality,max_members,cohort:cohorts(name,year))").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
   if (!membership?.team) {
     renderMembershipCenter();
@@ -171,6 +181,8 @@ async function loadWorkspace() {
   state.perspectives = perspectives || []; state.project = project;
   el("#profile-name").textContent = state.profile.full_name || state.profile.email;
   el("#team-label").textContent = `${state.team.name} · ${state.team.modality}`;
+  el("#admin-workspace-banner").classList.toggle("hidden", !state.administrativeAccess);
+  el("#admin-workspace-team").textContent = state.administrativeAccess ? state.team.name : "";
   el("#admin-link").classList.toggle("hidden", !["admin", "docente"].includes(state.profile.global_role));
   el("#team-invite-btn").classList.toggle("hidden", state.membership.role !== "lider");
   renderNavigation();

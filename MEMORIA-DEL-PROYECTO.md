@@ -296,6 +296,7 @@ Los docentes solo pueden alternar entre `participante` y `lider`. No pueden conc
 
 El administrador también puede:
 
+- Entrar desde el panel de equipos al espacio completo de cualquier grupo para supervisar el proyecto, formularios, actividad y entregables, sin figurar como integrante.
 - Eliminar definitivamente un equipo después de escribir su nombre exacto. La operación elimina archivos, proyecto, formularios, integrantes e invitaciones.
 - Eliminar una persona del portal después de confirmar su correo. La cuenta queda bloqueada, se retiran sus membresías y desaparece del panel, pero sus aportes se conservan para mantener la trazabilidad académica.
 
