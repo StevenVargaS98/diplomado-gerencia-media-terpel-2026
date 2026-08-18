@@ -8,7 +8,7 @@
   <meta property="og:description" content="Del reto estratégico a una solución con impacto.">
   <meta property="og:image" content="og.png">
   <title>Portal | Diplomado de Gerencia Media</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260817-5">
 </head>
 <body class="portal-body">
   <div id="boot-view" class="center-stage"><section class="setup-panel"><div class="setup-icon">GM</div><span class="eyebrow">Iniciando portal</span><h2>Cargando la experiencia académica…</h2><p id="boot-detail">Conectando de forma segura con la base del diplomado.</p></section></div>
@@ -24,15 +24,36 @@
       <div class="auth-card">
         <div class="auth-tabs"><button class="auth-tab active" data-auth-tab="login">Ingresar</button><button class="auth-tab" data-auth-tab="signup">Crear cuenta</button></div>
         <form id="login-form" class="auth-form"><h2>Bienvenido de nuevo</h2><p>Continúe el trabajo con su equipo.</p><label>Correo electrónico<input name="email" type="email" required autocomplete="username" placeholder="nombre@correo.com"></label><label>Contraseña<input name="password" type="password" required autocomplete="current-password" minlength="8" placeholder="••••••••"></label><button class="primary-btn" type="submit">Ingresar al portal →</button><button id="forgot-password" class="text-btn" type="button">Olvidé mi contraseña</button></form>
-        <form id="signup-form" class="auth-form hidden"><h2>Crear cuenta académica</h2><p>Necesita el código entregado por su líder o docente.</p><label>Nombre completo<input name="full_name" required autocomplete="name"></label><label>Correo electrónico<input name="email" type="email" required autocomplete="email"></label><label>Contraseña<input name="password" type="password" required minlength="8" autocomplete="new-password"></label><label>Código de equipo<input name="invitation" required autocomplete="off" placeholder="GERENCIA-2026-XXX"></label><button class="primary-btn" type="submit">Crear mi cuenta →</button><small class="form-help">Recibirá un correo de confirmación antes de ingresar.</small></form>
+        <form id="signup-form" class="auth-form hidden"><h2>Crear cuenta académica</h2><p>Puede registrarse e ingresar sin pertenecer todavía a un equipo.</p><label>Nombre completo<input name="full_name" required autocomplete="name"></label><label>Correo electrónico<input name="email" type="email" required autocomplete="email"></label><label>Contraseña<input name="password" type="password" required minlength="8" autocomplete="new-password"></label><button class="primary-btn" type="submit">Crear mi cuenta →</button><small class="form-help">Después podrá aceptar una invitación o, si el profesor lo habilita como líder, crear su equipo.</small></form>
       </div>
     </section>
   </main>
 
-  <div id="join-view" class="center-stage hidden"><section class="setup-panel"><span class="eyebrow">Último paso</span><h2>Únase a su equipo</h2><p>Su cuenta ya está activa. Ingrese el código de invitación asignado.</p><form id="join-form" class="compact-form"><label>Nombre completo<input name="full_name" required></label><label>Código de equipo<input name="invitation" required></label><button class="primary-btn">Vincularme al equipo</button></form><button class="text-btn" data-signout>Salir</button></section></div>
+  <div id="join-view" class="center-stage hidden">
+    <section class="membership-panel">
+      <header class="membership-header">
+        <div><span class="eyebrow">Centro de equipos</span><h2>Bienvenido al portal académico</h2><p>Su cuenta está activa. Puede permanecer sin equipo mientras el profesor organiza los grupos.</p></div>
+        <div class="membership-account"><span id="membership-role" class="role-badge">Participante</span><strong id="membership-name"></strong><small id="membership-email"></small></div>
+      </header>
+      <div class="membership-grid">
+        <article class="membership-card">
+          <span class="membership-number">01</span><h3>Aceptar una invitación</h3><p>Use el código privado enviado por el líder de un equipo. El registro de la cuenta no requiere este código.</p>
+          <form id="join-form" class="compact-form"><label>Código de invitación<input name="invitation" required autocomplete="off" placeholder="GM26-XXXXXX"></label><button class="primary-btn">Unirme al equipo</button></form>
+        </article>
+        <article id="leader-create-card" class="membership-card leader-card hidden">
+          <span class="membership-number">02</span><h3>Crear o reclamar mi equipo</h3><p>Esta opción aparece porque el profesor le asignó el rol de líder.</p>
+          <form id="leader-team-form" class="compact-form"><label>Nombre del equipo<input name="name" required maxlength="80" placeholder="Equipo 01"></label><div class="two-cols"><label>Modalidad<select name="modality"><option value="presencial">Presencial</option><option value="remoto">Remoto</option></select></label><label>Capacidad<input name="max_members" type="number" min="3" max="8" value="4" required></label></div><button class="primary-btn">Crear equipo</button></form>
+        </article>
+        <article id="leader-wait-card" class="membership-card waiting-card">
+          <span class="membership-number">02</span><h3>¿Quiere liderar un equipo?</h3><p>El profesor debe cambiar su rol a <strong>Líder habilitado</strong>. Después de hacerlo, recargue esta página y podrá crear el equipo.</p>
+        </article>
+      </div>
+      <footer class="membership-footer"><a id="membership-admin-link" class="admin-link hidden" href="admin.html">Abrir administración</a><button class="ghost-btn" type="button" onclick="location.reload()">Actualizar permisos</button><button class="text-btn" data-signout>Salir</button></footer>
+    </section>
+  </div>
 
   <div id="app-view" class="portal-shell hidden">
-    <header class="portal-topbar"><div class="program-brand dark"><span class="program-mark">GM</span><div><strong>Diplomado de Gerencia Media</strong><small id="team-label">Proyecto de aplicación</small></div></div><div class="top-actions"><span class="save-state"><i></i>Datos protegidos</span><a id="admin-link" class="admin-link hidden" href="admin.html">Administración</a><span id="profile-name" class="user-pill"></span><button class="text-btn" data-signout>Salir</button></div></header>
+    <header class="portal-topbar"><div class="program-brand dark"><span class="program-mark">GM</span><div><strong>Diplomado de Gerencia Media</strong><small id="team-label">Proyecto de aplicación</small></div></div><div class="top-actions"><span class="save-state"><i></i>Datos protegidos</span><button id="team-invite-btn" class="admin-link hidden" type="button">Invitar integrantes</button><a id="admin-link" class="admin-link hidden" href="admin.html">Administración</a><span id="profile-name" class="user-pill"></span><button class="text-btn" data-signout>Salir</button></div></header>
     <div class="portal-workspace">
       <aside class="course-sidebar"><div class="course-progress"><span>Progreso del proyecto</span><strong id="overall-progress">0%</strong><div class="progress-track"><div id="overall-bar" class="progress-fill"></div></div></div><nav id="course-nav" class="course-nav"></nav><div class="guide-card"><span>Guía académica</span><strong>7 componentes</strong><p>La estructura sigue los documentos oficiales del diplomado.</p><button id="print-project" class="ghost-btn">Vista de entrega</button></div></aside>
       <main class="course-main"><div id="project-empty" class="hidden"></div><div id="project-content"></div></main>
@@ -60,6 +81,6 @@
     })();
   </script>
   <script src="vendor/supabase.min.js?v=2.112.3" onerror="portalScriptError('Supabase local')"></script>
-  <script src="config.js?v=20260817-4" onerror="portalScriptError('config.js')"></script><script src="portal-core.js?v=20260817-4" onerror="portalScriptError('portal-core.js')"></script><script src="app.js?v=20260817-4" onerror="portalScriptError('app.js')"></script>
+  <script src="config.js?v=20260817-5" onerror="portalScriptError('config.js')"></script><script src="portal-core.js?v=20260817-5" onerror="portalScriptError('portal-core.js')"></script><script src="app.js?v=20260817-5" onerror="portalScriptError('app.js')"></script>
 </body>
 </html>

@@ -40,6 +40,8 @@ function wireAuth() {
   el("#login-form").addEventListener("submit", login);
   el("#signup-form").addEventListener("submit", signup);
   el("#join-form").addEventListener("submit", joinTeam);
+  el("#leader-team-form").addEventListener("submit", createTeamAsLeader);
+  el("#team-invite-btn").addEventListener("click", teamInvitationModal);
   el("#forgot-password").addEventListener("click", forgotPassword);
   document.querySelectorAll("[data-signout]").forEach((button) => button.addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "index.html"; }));
   el("#print-project").addEventListener("click", () => window.print());
@@ -72,7 +74,6 @@ async function login(event) {
 async function signup(event) {
   event.preventDefault(); const button = event.submitter; setBusy(button, true, "Creando cuenta…");
   const values = formData(event.currentTarget);
-  localStorage.setItem("portal_pending_join", JSON.stringify({ full_name: values.full_name.trim(), invitation: values.invitation.trim() }));
   const { data, error } = await supabase.auth.signUp({ email: values.email.trim(), password: values.password, options: { data: { full_name: values.full_name.trim() }, emailRedirectTo: new URL("index.html", window.location.href).href } });
   setBusy(button, false); if (error) return toast(humanError(error), "error");
   if (data.session) await enterPortal(data.user); else toast("Revise su correo y confirme la cuenta antes de ingresar.");
@@ -90,20 +91,44 @@ async function enterPortal(user) {
   const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single();
   if (profileError || !profile) return showFatal(profileError || new Error("No se encontró el perfil de esta cuenta.")); state.profile = profile;
   if (profile.global_role === "jurado") { window.location.href = "jury.html"; return; }
-  const { data: membership } = await supabase.from("team_members").select("role,status,team:academic_teams(id,name,modality,max_members,cohort:cohorts(name,year))").eq("user_id", user.id).eq("status", "active").maybeSingle();
+  const { data: membership } = await supabase.from("team_members").select("role,status,team:academic_teams(id,name,modality,max_members,cohort:cohorts(name,year))").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
   if (!membership?.team) {
-    const pending = JSON.parse(localStorage.getItem("portal_pending_join") || "null");
-    if (pending) { el('#join-form [name="full_name"]').value = pending.full_name || profile.full_name; el('#join-form [name="invitation"]').value = pending.invitation || ""; }
+    renderMembershipCenter();
     show("#join-view"); return;
   }
-  state.membership = membership; state.team = membership.team; localStorage.removeItem("portal_pending_join");
+  state.membership = membership; state.team = membership.team;
   await loadWorkspace(); hide("#join-view"); show("#app-view");
+}
+
+function renderMembershipCenter() {
+  hide("#app-view");
+  el("#membership-name").textContent = state.profile.full_name || "Cuenta académica";
+  el("#membership-email").textContent = state.profile.email;
+  el("#membership-role").textContent = roleName(state.profile.global_role);
+  const canCreate = state.profile.global_role === "lider";
+  el("#leader-create-card").classList.toggle("hidden", !canCreate);
+  el("#leader-wait-card").classList.toggle("hidden", canCreate);
+  el("#membership-admin-link").classList.toggle("hidden", !["admin", "docente"].includes(state.profile.global_role));
 }
 
 async function joinTeam(event) {
   event.preventDefault(); const button = event.submitter; const values = formData(event.currentTarget); setBusy(button, true);
-  const { error } = await supabase.rpc("join_with_invitation", { raw_code: values.invitation, participant_name: values.full_name });
+  const { error } = await supabase.rpc("join_with_invitation", { raw_code: values.invitation, participant_name: state.profile.full_name || state.profile.email });
   setBusy(button, false); if (error) return toast(humanError(error), "error"); toast("Ya hace parte del equipo."); await enterPortal(state.user);
+}
+
+async function createTeamAsLeader(event) {
+  event.preventDefault(); const button = event.submitter; const values = formData(event.currentTarget);
+  setBusy(button, true, "Creando equipo…");
+  const { error } = await supabase.rpc("create_team_as_leader", {
+    p_name: values.name,
+    p_modality: values.modality,
+    p_max_members: Number(values.max_members),
+  });
+  setBusy(button, false);
+  if (error) return toast(humanError(error), "error");
+  toast("Equipo creado. Ahora puede invitar a sus integrantes.");
+  await enterPortal(state.user);
 }
 
 async function loadWorkspace() {
@@ -115,6 +140,7 @@ async function loadWorkspace() {
   el("#profile-name").textContent = state.profile.full_name || state.profile.email;
   el("#team-label").textContent = `${state.team.name} · ${state.team.modality}`;
   el("#admin-link").classList.toggle("hidden", !["admin", "docente"].includes(state.profile.global_role));
+  el("#team-invite-btn").classList.toggle("hidden", state.membership.role !== "lider");
   renderNavigation();
   if (!project) { renderCreateProject(); return; }
   await loadProjectData(); subscribeRealtime(); renderShell(); renderSection();
@@ -248,6 +274,38 @@ function subscribeRealtime() {
     .subscribe();
 }
 
+function teamInvitationModal() {
+  if (state.membership?.role !== "lider") return toast("Solo el líder puede generar invitaciones.", "error");
+  const suggested = `GM26-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  openModal(`<span class="eyebrow">${esc(state.team.name)}</span><h2>Invitar integrantes</h2><p>El código se muestra una sola vez. Compártalo únicamente con las personas que formarán parte del equipo.</p><form id="team-invite-form" class="modal-form"><label>Código privado<input name="code" value="${suggested}" minlength="8" required></label><label>Número máximo de integrantes que pueden usarlo<input name="max_uses" type="number" min="1" max="7" value="${Math.max(1, state.team.max_members - 1)}" required></label><label>Fecha de vencimiento<input name="expires_at" type="datetime-local"></label><button class="primary-btn">Crear invitación</button></form><div id="team-created-code"></div>`);
+  el("#team-invite-form").addEventListener("submit", async (event) => {
+    event.preventDefault(); const button = event.submitter; const values = formData(event.currentTarget);
+    setBusy(button, true, "Creando…");
+    const { error } = await supabase.rpc("create_invitation", {
+      p_team: state.team.id,
+      raw_code: values.code,
+      p_role: "integrante",
+      p_max_uses: Number(values.max_uses),
+      p_expires_at: values.expires_at ? new Date(values.expires_at).toISOString() : null,
+    });
+    setBusy(button, false);
+    if (error) return toast(humanError(error), "error");
+    const code = values.code.trim().toUpperCase();
+    event.currentTarget.classList.add("hidden");
+    el("#team-created-code").innerHTML = `<div class="one-time-code"><span>Código para integrantes</span><strong>${esc(code)}</strong><button class="ghost-btn" id="copy-team-code" type="button">Copiar código</button><small>El código no puede recuperarse después porque la base solamente guarda su hash.</small></div>`;
+    el("#copy-team-code").addEventListener("click", async () => {
+      await navigator.clipboard.writeText(code); toast("Código copiado.");
+    });
+  });
+}
+
+function openModal(content) {
+  el("#modal-root").innerHTML = `<div class="modal-backdrop"><section class="modal"><button class="close-btn" aria-label="Cerrar">×</button>${content}</section></div>`;
+  el(".close-btn").addEventListener("click", closeModal);
+  el(".modal-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) closeModal(); });
+}
+function closeModal() { el("#modal-root").innerHTML = ""; }
+
 function area(label, name, value = "", placeholder = "", wide = false) { return `<label class="${wide ? "wide" : ""}">${label}<textarea name="${name}" placeholder="${esc(placeholder)}">${esc(value)}</textarea></label>`; }
 function recordList(items, render, type) { return items.length ? `<div class="record-list">${items.map((item) => `<article>${render(item)}<button class="delete-record" data-delete="${type}" data-id="${item.id}">×</button></article>`).join("")}</div>` : empty("Aún no hay registros en este componente."); }
 function empty(message) { return `<div class="empty-state">${esc(message)}</div>`; }
@@ -255,5 +313,6 @@ function stageName(value) { return ({ formulacion: "Formulación", prototipo: "P
 function statusName(value) { return ({ pending: "Pendiente", submitted: "Entregado", in_review: "En revisión", changes_requested: "Requiere cambios", approved: "Aprobado" })[value] || value; }
 function emptyToNull(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
 function numeric(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
+function roleName(value) { return ({ admin: "Administrador", docente: "Docente", participante: "Participante", jurado: "Jurado", lider: "Líder habilitado" })[value] || value; }
 function humanError(error) { const message = error?.message || "No fue posible completar la operación."; if (/Invalid login/i.test(message)) return "Correo o contraseña incorrectos."; if (/Email not confirmed/i.test(message)) return "Confirme primero su correo electrónico."; if (/duplicate key/i.test(message)) return "Ese registro ya existe."; return message; }
 })();

@@ -25,6 +25,7 @@ La página `admin.html` no se considera secreta. Cualquier persona puede conocer
 - `admin`: administra toda la cohorte.
 - `docente`: consulta y revisa todos los equipos.
 - `participante`: accede a sus equipos.
+- `lider`: autorización temporal para crear o reclamar un equipo; no concede administración global.
 - `jurado`: evalúa proyectos asignados.
 
 ### Dentro del equipo
@@ -59,6 +60,9 @@ cohorts
 ## Reglas críticas
 
 - Ninguna tabla académica permite acceso anónimo.
+- Una cuenta autenticada puede entrar al Centro de equipos sin tener membresía.
+- Solo el rol global `lider` puede ejecutar la función segura de creación de equipos.
+- Los códigos de invitación vinculan integrantes; nunca conceden liderazgo.
 - La membresía activa determina qué equipo puede consultar el participante.
 - Escritura limitada a líderes e integrantes.
 - Docentes y administradores operan mediante un rol global protegido.

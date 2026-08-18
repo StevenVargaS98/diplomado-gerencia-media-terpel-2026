@@ -19,6 +19,10 @@ Esta guía convierte el paquete estático en un portal multiusuario con informac
 
 `schema.sql` crea las tablas, índices, funciones de invitación, almacenamiento privado y políticas RLS. `seed.sql` agrega la cohorte 2026 y las seis perspectivas estratégicas.
 
+### Si ya instaló la primera versión
+
+No vuelva a ejecutar todo el esquema. Abra una consulta nueva, copie `supabase/migracion-acceso-y-lideres.sql` y pulse **Run**. Esta migración permite entrar sin equipo, agrega el rol `lider`, habilita la creación segura de equipos y configura la cuenta administradora definida para el diplomado.
+
 ## 3. Configurar el registro
 
 En **Authentication → Sign In / Providers → Email**:
@@ -62,33 +66,21 @@ window.PORTAL_CONFIG = {
 
 No use la `service_role key`. Esa clave evita RLS y no debe aparecer en GitHub, el navegador, mensajes o capturas.
 
-## 5. Crear el primer administrador
+## 5. Cuenta administradora
 
-1. Publique temporalmente el portal o ejecútelo con un servidor web local.
-2. Registre la cuenta que será administradora.
-3. Confirme el correo.
-4. En Supabase SQL Editor ejecute, sustituyendo el correo:
+Registre o inicie sesión con `ing.stevenh.vargas@gmail.com`. El esquema y la migración asignan automáticamente a esa cuenta el rol `admin` y estado activo. Después abra `admin.html`.
 
-```sql
-update public.profiles
-set global_role = 'admin'
-where email = 'CORREO-DEL-ADMINISTRADOR';
-```
-
-5. Cierre e inicie sesión nuevamente.
-6. Abra `admin.html`.
-
-Desde ese momento el administrador puede crear equipos, promover docentes o jurados y generar invitaciones.
+El administrador puede habilitar docentes, jurados y líderes. Un docente también puede alternar entre `Participante` y `Líder habilitado`, pero no puede conceder permisos administrativos.
 
 ## 6. Crear equipos e invitaciones
 
-1. Abra `admin.html`.
-2. Seleccione **Equipos → Crear equipo**.
-3. Defina modalidad y capacidad.
-4. Pulse **Generar invitación**.
-5. Copie el código y compártalo únicamente con ese equipo.
+1. Cada persona crea su cuenta sin código y puede entrar aunque todavía no tenga equipo.
+2. En `admin.html`, abra **Participantes** y cambie a `Líder habilitado` a quien corresponda.
+3. Esa persona vuelve al portal y crea o reclama su equipo enumerado.
+4. El líder pulsa **Invitar integrantes**, genera el código y lo comparte de forma privada.
+5. Los demás participantes ingresan con su correo y contraseña y aceptan la invitación desde el Centro de equipos.
 
-El código no se almacena en texto plano. La base conserva un hash, número máximo de usos y vencimiento.
+El código no sirve para crear la cuenta ni para otorgar liderazgo. Solo vincula integrantes autenticados. No se almacena en texto plano: la base conserva un hash, número máximo de usos y vencimiento.
 
 ## 7. Publicar en GitHub Pages
 

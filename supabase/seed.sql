@@ -17,5 +17,5 @@ on conflict(code) do update set name=excluded.name,sort_order=excluded.sort_orde
 -- Remoto: 1 equipo de 3 personas y 1 equipo de 4 personas.
 -- Fechas: formulación 17 septiembre; guía completa 27 octubre; shark tank 26 noviembre.
 
--- Después de registrar al primer administrador en la aplicación, ejecutar una vez:
--- update public.profiles set global_role='admin' where email='correo.admin@ejemplo.com';
+-- La cuenta ing.stevenh.vargas@gmail.com recibe el rol admin automáticamente
+-- mediante public.handle_new_user() definido en schema.sql.

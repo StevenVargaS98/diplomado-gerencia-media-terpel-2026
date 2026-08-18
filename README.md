@@ -4,8 +4,9 @@ Portal académico colaborativo preparado para **GitHub Pages + Supabase**. Convi
 
 ## Qué resuelve
 
-- Registro individual con correo, contraseña y código de invitación.
-- Equipos presenciales y remotos con líder, integrantes y observadores.
+- Registro e ingreso individual con correo y contraseña, sin exigir equipo ni código.
+- El profesor habilita el rol de líder; únicamente ese rol puede crear o reclamar un equipo.
+- Los demás participantes se vinculan después mediante una invitación privada del líder.
 - Datos compartidos y sincronizados entre dispositivos.
 - Separación segura de información por equipo mediante Row Level Security.
 - Formulación guiada: diagnóstico, objetivos SMART, alternativas, plan, involucrados, recursos, indicadores y Gantt.
@@ -53,6 +54,7 @@ config.js                   URL y publishable key de Supabase
 styles.css                  Diseño adaptable e impresión
 supabase/schema.sql         Base, funciones, roles y RLS
 supabase/seed.sql           Cohorte, fechas y perspectivas
+supabase/migracion-acceso-y-lideres.sql Actualización para bases ya instaladas
 CONFIGURAR-SUPABASE.md      Instalación paso a paso
 ARQUITECTURA-Y-SEGURIDAD.md Diseño técnico y modelo de permisos
 ```
@@ -60,6 +62,8 @@ ARQUITECTURA-Y-SEGURIDAD.md Diseño técnico y modelo de permisos
 ## Puesta en marcha
 
 Siga [CONFIGURAR-SUPABASE.md](CONFIGURAR-SUPABASE.md). No necesita servidor propio: GitHub Pages aloja la interfaz y Supabase protege usuarios, datos y archivos.
+
+Si la base ya estaba instalada con la primera versión, ejecute una vez `supabase/migracion-acceso-y-lideres.sql` antes de publicar esta versión. La migración asigna como administrador a `ing.stevenh.vargas@gmail.com`, agrega el rol `lider` y revoca los códigos antiguos de liderazgo.
 
 ## Vista local sin configurar Supabase
 
