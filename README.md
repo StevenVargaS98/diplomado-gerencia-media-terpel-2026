@@ -61,6 +61,18 @@ ARQUITECTURA-Y-SEGURIDAD.md Diseño técnico y modelo de permisos
 
 Siga [CONFIGURAR-SUPABASE.md](CONFIGURAR-SUPABASE.md). No necesita servidor propio: GitHub Pages aloja la interfaz y Supabase protege usuarios, datos y archivos.
 
+## Vista local sin configurar Supabase
+
+La opción más sencilla en Windows es hacer doble clic en `INICIAR-VISTA-LOCAL.bat`.
+
+También puede iniciarla manualmente. Desde esta carpeta ejecute:
+
+```powershell
+python -m http.server 8080 --bind 127.0.0.1
+```
+
+Luego abra `http://127.0.0.1:8080/preview.html`. La barra superior permite recorrer el ingreso y las vistas de participante, administración y jurado con datos ficticios. Para detener el servidor presione `Ctrl + C` en la terminal.
+
 ## Principio de seguridad
 
 El HTML, CSS, JavaScript y la `Publishable key` son públicos porque GitHub Pages es estático. Los datos no son públicos: cada consulta se valida en PostgreSQL mediante RLS. La clave `service_role` no se usa ni se incluye en este proyecto.
