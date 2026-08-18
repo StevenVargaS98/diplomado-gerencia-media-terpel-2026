@@ -509,6 +509,18 @@ Solución:
 - Se añadió `extensions` al `search_path` de `join_with_invitation` y `create_invitation`.
 - Se creó `supabase/migracion-fix-pgcrypto.sql` para corregir bases ya instaladas.
 
+### Participantes y roles aparece vacío
+
+Causa posible:
+
+- La interfaz intentaba filtrar por `deleted_at` desde Supabase antes de comprobar que la migración administrativa hubiese creado esa columna.
+- Los errores de carga se convertían silenciosamente en listas vacías.
+
+Solución:
+
+- La consulta de perfiles vuelve a ser compatible con bases anteriores y filtra localmente los perfiles retirados.
+- El panel muestra el mensaje concreto de Supabase cuando alguna consulta administrativa falla.
+
 ### Liderazgo concedido por código
 
 Causa:

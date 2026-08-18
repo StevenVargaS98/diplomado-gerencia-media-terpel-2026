@@ -13,7 +13,14 @@ async function initializeAdmin() {
   const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
   if (!profile || !["admin", "docente"].includes(profile.global_role)) return deny();
   adminState.profile = profile; $("#admin-name").textContent = profile.full_name || profile.email;
-  wireAdmin(); await loadAdminData(); $("#admin-app").classList.remove("hidden"); renderAdmin();
+  wireAdmin();
+  try {
+    await loadAdminData(); $("#admin-app").classList.remove("hidden"); renderAdmin();
+  } catch (error) {
+    $("#admin-app").classList.remove("hidden");
+    $("#admin-content").innerHTML = `${head("Conexión de datos", "No se pudo cargar la administración", "Las cuentas no fueron borradas por esta pantalla.")}<section class="admin-table-card"><div class="empty-state"><strong>Supabase rechazó una consulta</strong><p>${esc(error.message || "Error desconocido")}</p><button class="primary-btn" type="button" onclick="location.reload()">Intentar nuevamente</button></div></section>`;
+    toast("No se pudieron cargar los datos administrativos.", "error");
+  }
 }
 
 function deny() { $("#admin-denied").classList.remove("hidden"); }
@@ -29,11 +36,17 @@ async function loadAdminData() {
   const results = await Promise.all([
     supabase.from("cohorts").select("*").order("year", { ascending: false }),
     supabase.from("academic_teams").select("*,cohort:cohorts(name,year),members:team_members(user_id,role,status,profile:profiles(full_name,email))").order("created_at"),
-    supabase.from("profiles").select("*").is("deleted_at", null).order("full_name"),
+    supabase.from("profiles").select("*").order("full_name"),
     supabase.from("projects").select("*,team:academic_teams(name,modality),deliverables(*)").order("updated_at", { ascending: false }),
     supabase.from("jury_reviews").select("*,reviewer:profiles(full_name,email),project:projects(title)").order("submitted_at", { ascending: false }),
   ]);
-  [adminState.cohorts, adminState.teams, adminState.people, adminState.projects, adminState.reviews] = results.map((result) => result.data || []);
+  const labels = ["cohortes", "equipos", "participantes", "proyectos", "evaluaciones"];
+  const failures = results.flatMap((result, index) => result.error ? [`${labels[index]}: ${result.error.message}`] : []);
+  if (failures.length) throw new Error(failures.join(" | "));
+  const [cohorts, teams, people, projects, reviews] = results.map((result) => result.data || []);
+  adminState.cohorts = cohorts; adminState.teams = teams;
+  adminState.people = people.filter((person) => !person.deleted_at);
+  adminState.projects = projects; adminState.reviews = reviews;
 }
 
 function renderAdmin() { const renders = { overview: overview, teams: teams, people: people, deliverables: deliverables, reviews: reviews }; $("#admin-content").innerHTML = renders[adminState.section](); }
@@ -47,7 +60,8 @@ function teams() {
   return `${head("Organización académica", "Equipos de trabajo", "Cree equipos, genere invitaciones y supervise su conformación.", '<button class="primary-btn" data-modal="team">＋ Crear equipo</button>')}<div class="team-admin-grid">${adminState.teams.map((team) => { const active = (team.members || []).filter((m) => m.status === "active"); return `<article class="team-admin-card"><div><span class="modality ${team.modality}">${esc(team.modality)}</span><strong>${esc(team.name)}</strong><small>${active.length}/${team.max_members} integrantes · ${team.cohort?.year || ""}</small></div><div class="member-stack">${active.slice(0, 4).map((member) => `<span title="${esc(member.profile?.full_name || member.profile?.email)}">${esc((member.profile?.full_name || member.profile?.email || "U")[0])}</span>`).join("")}</div>${adminState.profile.global_role === "admin" ? `<a class="ghost-btn button-link team-open-link" href="index.html?team=${encodeURIComponent(team.id)}">Entrar al espacio</a>` : ""}<button class="ghost-btn" data-invite="${team.id}" data-name="${esc(team.name)}">Generar invitación</button><button class="text-btn" data-team-detail="${team.id}">Ver integrantes</button>${adminState.profile.global_role === "admin" ? `<button class="danger-btn admin-delete-action" data-delete-team="${team.id}" data-name="${esc(team.name)}">Eliminar equipo</button>` : ""}</article>`; }).join("") || empty("Cree el primer equipo del diplomado.")}</div>`;
 }
 function people() {
-  return `${head("Comunidad", "Participantes y roles", "Asigne Líder habilitado a quien podrá crear un equipo. Los demás solo podrán aceptar invitaciones.")}<section class="leader-permission-note"><strong>Flujo de conformación</strong><span>1. La persona crea su cuenta sin código.</span><span>2. El profesor la habilita como líder, si corresponde.</span><span>3. El líder crea el equipo y comparte invitaciones con sus integrantes.</span></section><section class="admin-table-card"><div class="people-table table"><div class="tr th"><span>Persona</span><span>Rol global</span><span>Estado</span><span>Registro</span></div>${adminState.people.map((person) => `<div class="tr"><span><strong>${esc(person.full_name || "Sin nombre")}</strong><small>${esc(person.email)}</small>${adminState.profile.global_role === "admin" && person.id !== adminState.user.id ? `<button class="danger-btn person-delete-action" data-delete-person="${person.id}" data-email="${esc(person.email)}" data-name="${esc(person.full_name || person.email)}">Eliminar persona</button>` : ""}</span><span>${profileRoleSelect(person)}</span><span><select data-profile-status="${person.id}" ${adminState.profile.global_role !== "admin" ? "disabled" : ""}><option value="active" ${person.status === "active" ? "selected" : ""}>Activo</option><option value="pending" ${person.status === "pending" ? "selected" : ""}>Pendiente</option><option value="blocked" ${person.status === "blocked" ? "selected" : ""}>Bloqueado</option></select></span><span>${shortDate(person.created_at)}</span></div>`).join("")}</div></section>`;
+  const rows = adminState.people.map((person) => `<div class="tr"><span><strong>${esc(person.full_name || "Sin nombre")}</strong><small>${esc(person.email)}</small>${adminState.profile.global_role === "admin" && person.id !== adminState.user.id ? `<button class="danger-btn person-delete-action" data-delete-person="${person.id}" data-email="${esc(person.email)}" data-name="${esc(person.full_name || person.email)}">Eliminar persona</button>` : ""}</span><span>${profileRoleSelect(person)}</span><span><select data-profile-status="${person.id}" ${adminState.profile.global_role !== "admin" ? "disabled" : ""}><option value="active" ${person.status === "active" ? "selected" : ""}>Activo</option><option value="pending" ${person.status === "pending" ? "selected" : ""}>Pendiente</option><option value="blocked" ${person.status === "blocked" ? "selected" : ""}>Bloqueado</option></select></span><span>${shortDate(person.created_at)}</span></div>`).join("");
+  return `${head("Comunidad", "Participantes y roles", "Asigne Líder habilitado a quien podrá crear un equipo. Los demás solo podrán aceptar invitaciones.")}<section class="leader-permission-note"><strong>Flujo de conformación</strong><span>1. La persona crea su cuenta sin código.</span><span>2. El profesor la habilita como líder, si corresponde.</span><span>3. El líder crea el equipo y comparte invitaciones con sus integrantes.</span></section><section class="admin-table-card"><div class="people-table table"><div class="tr th"><span>Persona</span><span>Rol global</span><span>Estado</span><span>Registro</span></div>${rows || empty("No hay perfiles visibles. Verifique las cuentas en Authentication → Users.")}</div></section>`;
 }
 
 function profileRoleSelect(person) {
