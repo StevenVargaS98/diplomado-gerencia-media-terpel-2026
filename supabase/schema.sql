@@ -290,19 +290,10 @@ begin
     new.id,
     coalesce(new.email,''),
     coalesce(new.raw_user_meta_data->>'full_name',''),
-    case when lower(coalesce(new.email,'')) = 'ing.stevenh.vargas@gmail.com' then 'admin' else 'participante' end,
+    'participante',
     'active'
   )
-  on conflict (id) do update set
-    email = excluded.email,
-    global_role = case
-      when lower(excluded.email) = 'ing.stevenh.vargas@gmail.com' then 'admin'
-      else public.profiles.global_role
-    end,
-    status = case
-      when lower(excluded.email) = 'ing.stevenh.vargas@gmail.com' then 'active'
-      else public.profiles.status
-    end;
+  on conflict (id) do nothing;
   return new;
 end;
 $$;

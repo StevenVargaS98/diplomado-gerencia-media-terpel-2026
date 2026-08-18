@@ -68,7 +68,9 @@ No use la `service_role key`. Esa clave evita RLS y no debe aparecer en GitHub, 
 
 ## 5. Cuenta administradora
 
-Registre o inicie sesión con `ing.stevenh.vargas@gmail.com`. El esquema y la migración asignan automáticamente a esa cuenta el rol `admin` y estado activo. Después abra `admin.html`.
+Primero registre la cuenta `ing.stevenh.vargas@gmail.com`. Después ejecute `supabase/migracion-acceso-y-lideres.sql`; la migración asigna a esa cuenta existente el rol `admin` y estado activo. Si el resultado final no muestra ninguna fila, la cuenta todavía no existe: regístrela y vuelva a ejecutar la migración. Después abra `admin.html`.
+
+La promoción no ocurre automáticamente durante el registro. Esta separación es importante cuando la confirmación de correo está desactivada: evita que alguien obtenga permisos administrativos con solo escribir esa dirección.
 
 El administrador puede habilitar docentes, jurados y líderes. Un docente también puede alternar entre `Participante` y `Líder habilitado`, pero no puede conceder permisos administrativos.
 
