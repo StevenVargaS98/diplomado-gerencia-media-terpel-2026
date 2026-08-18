@@ -141,7 +141,7 @@ function deletePersonModal(profileId, email, name) {
     if (values.confirmation.trim().toLowerCase() !== email.trim().toLowerCase()) return toast("El correo de confirmación no coincide.", "error");
     setBusy(button, true, "Eliminando…");
     const { error } = await supabase.rpc("admin_remove_person", { p_profile: profileId });
-    setBusy(button, false); if (error) return toast(error.message, "error");
+    setBusy(button, false); if (error) return toast(adminRpcError(error), "error");
     closeModal(); await reload(); toast("Persona eliminada y acceso bloqueado.");
   };
 }
@@ -159,7 +159,7 @@ function deleteTeamModal(teamId, name) {
       if (storageError) { setBusy(button, false); return toast(`No se eliminaron los archivos: ${storageError.message}`, "error"); }
     }
     const { error } = await supabase.rpc("admin_delete_team", { p_team: teamId, p_confirmation: values.confirmation });
-    setBusy(button, false); if (error) return toast(error.message, "error");
+    setBusy(button, false); if (error) return toast(adminRpcError(error), "error");
     closeModal(); await reload(); toast("Equipo eliminado definitivamente.");
   };
 }
@@ -174,6 +174,11 @@ function modal(content) { $("#modal-root").innerHTML = `<div class="modal-backdr
 function closeModal() { $("#modal-root").innerHTML = ""; }
 async function reload() { await loadAdminData(); renderAdmin(); }
 function empty(message) { return `<div class="empty-state">${esc(message)}</div>`; }
+function adminRpcError(error) {
+  const message = error?.message || "Error administrativo inesperado.";
+  if (/schema cache|could not find the function/i.test(message)) return "Falta instalar o recargar las funciones administrativas en Supabase. Ejecute supabase/migracion-admin-eliminaciones.sql en el SQL Editor.";
+  return message;
+}
 function statusName(value) { return ({ pending: "Pendiente", submitted: "Entregado", in_review: "En revisión", changes_requested: "Requiere cambios", approved: "Aprobado" })[value] || value; }
 function stageName(value) { return ({ formulacion: "Formulación", prototipo: "Prototipo", shark_tank: "Shark tank", completed: "Finalizado" })[value] || value; }
 function averageReview(review) { const values = [review.strategic_impact, review.feasibility, review.innovation, review.evidence_quality, review.presentation].filter((item) => item != null); return values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : "—"; }

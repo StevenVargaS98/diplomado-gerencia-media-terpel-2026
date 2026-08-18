@@ -521,6 +521,17 @@ Solución:
 - La consulta de perfiles vuelve a ser compatible con bases anteriores y filtra localmente los perfiles retirados.
 - El panel muestra el mensaje concreto de Supabase cuando alguna consulta administrativa falla.
 
+### `Could not find the function public.admin_remove_person` en el schema cache
+
+Causa:
+
+- La interfaz fue publicada antes de ejecutar `supabase/migracion-admin-eliminaciones.sql`, o la Data API todavía conservaba el esquema anterior en caché.
+
+Solución:
+
+- Ejecutar completa la migración administrativa.
+- La migración ahora envía `NOTIFY pgrst, 'reload schema'` y consulta la cola de notificaciones para forzar la actualización de la Data API.
+
 ### Liderazgo concedido por código
 
 Causa:

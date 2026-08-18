@@ -89,6 +89,10 @@ using(bucket_id = 'deliverables' and public.is_admin());
 
 commit;
 
+-- Fuerza a la Data API de Supabase a reconocer inmediatamente las funciones.
+notify pgrst, 'reload schema';
+select pg_notification_queue_usage();
+
 select
   p.proname as function_name,
   has_function_privilege('authenticated', p.oid, 'EXECUTE') as authenticated_can_execute
