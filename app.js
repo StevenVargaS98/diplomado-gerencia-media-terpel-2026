@@ -1,3 +1,4 @@
+(() => {
 const { configured, libraryAvailable, supabase, escapeHtml: esc, shortDate, money, toast, setBusy, setupPanel } = window.Portal;
 
 const SECTIONS = [
@@ -255,3 +256,4 @@ function statusName(value) { return ({ pending: "Pendiente", submitted: "Entrega
 function emptyToNull(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
 function numeric(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
 function humanError(error) { const message = error?.message || "No fue posible completar la operación."; if (/Invalid login/i.test(message)) return "Correo o contraseña incorrectos."; if (/Email not confirmed/i.test(message)) return "Confirme primero su correo electrónico."; if (/duplicate key/i.test(message)) return "Ese registro ya existe."; return message; }
+})();

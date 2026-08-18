@@ -1,3 +1,4 @@
+(() => {
 const { configured, supabase, escapeHtml: esc, shortDate, toast, setBusy, setupPanel } = window.Portal;
 const adminState = { user: null, profile: null, section: "overview", cohorts: [], teams: [], people: [], projects: [], reviews: [] };
 const $ = (selector) => document.querySelector(selector);
@@ -113,3 +114,4 @@ function empty(message) { return `<div class="empty-state">${esc(message)}</div>
 function statusName(value) { return ({ pending: "Pendiente", submitted: "Entregado", in_review: "En revisión", changes_requested: "Requiere cambios", approved: "Aprobado" })[value] || value; }
 function stageName(value) { return ({ formulacion: "Formulación", prototipo: "Prototipo", shark_tank: "Shark tank", completed: "Finalizado" })[value] || value; }
 function averageReview(review) { const values = [review.strategic_impact, review.feasibility, review.innovation, review.evidence_quality, review.presentation].filter((item) => item != null); return values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : "—"; }
+})();

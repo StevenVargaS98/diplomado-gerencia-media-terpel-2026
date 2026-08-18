@@ -1,3 +1,4 @@
+(() => {
 const { configured, supabase, escapeHtml: esc, toast, setBusy, setupPanel } = window.Portal;
 const juryState = { user: null, profile: null, assignments: [], reviews: [] };
 const $j = (selector) => document.querySelector(selector);
@@ -39,3 +40,4 @@ async function submitReview(event) {
   const { error } = await supabase.from("jury_reviews").upsert({ project_id: event.currentTarget.dataset.reviewProject, reviewer_id: juryState.user.id, ...values, submitted_at: new Date().toISOString() }, { onConflict: "project_id,reviewer_id" });
   setBusy(button, false); if (error) return toast(error.message, "error"); await loadJury(); renderJury(); toast("Evaluación guardada.");
 }
+})();
