@@ -4,7 +4,7 @@
 
 Esta versión requiere `portal_version() = 20260915` en Supabase. La interfaz comprueba esa versión al ingresar y muestra un error de actualización si falta. El despliegue de GitHub Pages **no ejecuta migraciones SQL**.
 
-Durante la revisión, el dominio configurado `zlilnnthjztzszejxwfd.supabase.co` no resolvió por DNS. No hubo acceso autenticado al proyecto Supabase ni a datos reales. La instalación y actualización fueron verificadas en PostgreSQL local con datos sintéticos; su aplicación en producción queda pendiente de disponer del proyecto activo.
+El proyecto `zlilnnthjztzszejxwfd` ya fue reanudado y actualizado el 15 de septiembre de 2026. La falta inicial de DNS se debía a su pausa. La base real devuelve `20260915`; consulte [DESPLIEGUE-20260915.md](DESPLIEGUE-20260915.md) para la copia previa, los conteos conservados, las pruebas reales y sus límites. Las instrucciones siguientes sirven para futuras instalaciones o recuperaciones.
 
 ## Base existente
 

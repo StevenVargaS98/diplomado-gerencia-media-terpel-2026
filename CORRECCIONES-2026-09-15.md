@@ -4,13 +4,13 @@
 
 Se corrigieron los defectos reproducidos en la auditoría del repositorio: autorización de datos y archivos, evaluación, colaboración, entregas, edición académica y operación administrativa. Se añadieron pruebas de regresión y un esquema consolidado reproducible.
 
-**La puesta en producción no se considera completada con el push.** El dominio Supabase configurado no resolvió durante la revisión y no se dispuso de una sesión administrativa de ese proyecto. La migración, el estado de los datos existentes y las pruebas con servicios reales siguen pendientes. El frontend comprueba la versión de base requerida para impedir operar con un esquema incompatible.
+**Actualización de producción:** el propietario habilitó acceso al proyecto; se reanudó Supabase, se respaldaron los datos y se aplicó la migración. La versión real es `20260915`. Las comprobaciones posteriores están en [DESPLIEGUE-20260915.md](DESPLIEGUE-20260915.md). El frontend comprueba la versión de base requerida para impedir operar con un esquema incompatible.
 
 ## Seguimiento de los hallazgos
 
 | Área revisada | Corrección implementada | Evidencia / límite |
 |---|---|---|
-| Disponibilidad del backend | Error explícito de conexión y comprobación de versión | Pendiente proyecto Supabase activo; el código no puede recuperar un servicio inexistente |
+| Disponibilidad del backend | Proyecto reanudado; error explícito de conexión y comprobación de versión | Supabase Healthy y Auth HTTP 200 tras la restauración |
 | Cuentas bloqueadas o retiradas | Permisos de contenido y Storage exigen perfil activo, membresía y rol vigentes | Pruebas SQL con cuentas bloqueadas y retiradas |
 | Creación de equipos | Validación del rol incluso cuando la consulta devuelve NULL; bloqueo de concurrencia y membresía única | SQL: accesos denegados e instalación/actualización |
 | Evaluaciones de jurado | Solo autor con rol vigente y asignación activa puede guardar; cinco criterios y comentarios obligatorios | SQL y envío real en navegador con API simulada |
@@ -47,6 +47,6 @@ Resultado local final: **36 comprobaciones aprobadas, 0 fallos**. `npm run check
 
 Las pruebas PostgreSQL emplean PGlite con contexto de autenticación y tablas Storage sintéticos; no comprueban entrega de correos, firma real de enlaces, objetos físicos, latencia, cuotas o transporte WebSocket del proyecto remoto. No se realizaron pruebas destructivas contra datos de producción.
 
-## Despliegue pendiente de base real
+## Despliegue de base real
 
-El procedimiento completo, los comandos y los pasos de recuperación están en [ACTUALIZAR-20260915.md](ACTUALIZAR-20260915.md). Resolver el proyecto activo, ejecutar la migración y realizar la aceptación con usuarios de prueba son requisitos para cerrar la validación integral. No se puede garantizar ausencia absoluta de errores a partir de pruebas locales.
+El procedimiento completo, los comandos y los pasos de recuperación están en [ACTUALIZAR-20260915.md](ACTUALIZAR-20260915.md). La reanudación y migración se completaron y se probaron permisos en PostgreSQL real con reversión de cambios. La aceptación restante de correo, Storage y colaboración con sesiones de navegador se detalla en el informe de despliegue. Las comprobaciones realizadas no garantizan ausencia absoluta de errores ni disponibilidad continua del proveedor.

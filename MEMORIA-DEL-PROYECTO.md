@@ -4,7 +4,7 @@
 
 Última actualización: 15 de septiembre de 2026
 
-> Actualización: las decisiones y procedimientos vigentes están en [ACTUALIZAR-20260915.md](ACTUALIZAR-20260915.md). El contenido del 18 de agosto que sigue es histórico; no debe usarse para ejecutar migraciones antiguas después de la corrección de integridad. La conexión y migración de Supabase real siguen pendientes de validación.
+> Actualización: las decisiones y procedimientos vigentes están en [ACTUALIZAR-20260915.md](ACTUALIZAR-20260915.md). El contenido del 18 de agosto que sigue es histórico; no debe usarse para ejecutar migraciones antiguas después de la corrección de integridad. El proyecto Supabase fue reanudado y migrado a la versión 20260915; consulte DESPLIEGUE-20260915.md para los resultados reales y los límites de validación.
 Repositorio: `StevenVargaS98/diplomado-gerencia-media-terpel-2026`  
 Rama de publicación: `main`  
 Sitio público: <https://stevenvargas98.github.io/diplomado-gerencia-media-terpel-2026/>  

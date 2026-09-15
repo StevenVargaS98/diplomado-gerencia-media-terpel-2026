@@ -17,5 +17,5 @@ on conflict(code) do update set name=excluded.name,sort_order=excluded.sort_orde
 -- Remoto: 1 equipo de 3 personas y 1 equipo de 4 personas.
 -- Fechas: formulación 17 septiembre; guía completa 27 octubre; shark tank 26 noviembre.
 
--- Para asignar la cuenta administradora, registre primero al usuario y ejecute
--- supabase/migracion-acceso-y-lideres.sql.
+-- Para asignar la cuenta administradora, registre y confirme primero al usuario;
+-- ejecute supabase/promover-administrador.sql con su UUID verificado.
