@@ -1,2 +1,9 @@
 # Archivos operativos privados: contienen codigos de invitacion.
 supabase/crear-20-equipos.sql
+node_modules/
+audit/
+AUDITORIA-2026-09-15.md
+test-results/
+.env
+.env.*
+!.env.example

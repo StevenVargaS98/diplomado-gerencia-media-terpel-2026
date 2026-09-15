@@ -1,43 +1,25 @@
 (() => {
-const { configured, supabase, escapeHtml: esc, toast, setBusy, setupPanel } = window.Portal;
-const juryState = { user: null, profile: null, assignments: [], reviews: [] };
-const $j = (selector) => document.querySelector(selector);
-
-document.addEventListener("DOMContentLoaded", initializeJury);
-
-async function initializeJury() {
-  if (!configured) { $j("#jury-config").innerHTML = setupPanel(); $j("#jury-config").classList.remove("hidden"); return; }
-  const { data: { session } } = await supabase.auth.getSession(); if (!session) return denyJury();
-  juryState.user = session.user;
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", session.user.id).single();
-  if (!profile || !["jurado", "admin", "docente"].includes(profile.global_role)) return denyJury();
-  juryState.profile = profile; $j("#jury-name").textContent = profile.full_name || profile.email;
-  document.querySelector("[data-signout]").onclick = async () => { await supabase.auth.signOut(); window.location.href = "index.html"; };
-  $j("#jury-projects").addEventListener("submit", submitReview);
-  await loadJury(); $j("#jury-app").classList.remove("hidden"); renderJury();
-}
-
-function denyJury() { $j("#jury-denied").classList.remove("hidden"); }
-async function loadJury() {
-  const [{ data: assignments }, { data: reviews }] = await Promise.all([
-    supabase.from("jury_assignments").select("project_id,project:projects(id,title,executive_summary,strategic_alignment,stage,team:academic_teams(name),problem_diagnosis(current_situation,impact,root_causes),prototype(description,test_results,status),indicators(name,indicator_type,target,current_value,unit))").eq("reviewer_id", juryState.user.id),
-    supabase.from("jury_reviews").select("*").eq("reviewer_id", juryState.user.id),
-  ]);
-  juryState.assignments = assignments || []; juryState.reviews = reviews || [];
-}
-
-function renderJury() {
-  $j("#jury-projects").innerHTML = juryState.assignments.length ? juryState.assignments.map((assignment) => {
-    const project = assignment.project; const review = juryState.reviews.find((item) => item.project_id === assignment.project_id) || {};
-    return `<article class="jury-card"><header><div><span>${esc(project.team?.name || "Equipo")}</span><h2>${esc(project.title)}</h2><p>${esc(project.executive_summary || project.strategic_alignment || "Sin resumen ejecutivo")}</p></div><b>${review.submitted_at ? "Evaluado" : "Pendiente"}</b></header><details><summary>Ver evidencia del proyecto</summary><div class="jury-evidence"><section><strong>Problema</strong><p>${esc(project.problem_diagnosis?.current_situation || "Por completar")}</p></section><section><strong>Impacto</strong><p>${esc(project.problem_diagnosis?.impact || "Por completar")}</p></section><section><strong>Prototipo</strong><p>${esc(project.prototype?.description || "Por completar")}</p><small>${esc(project.prototype?.test_results || "Sin resultados de prueba")}</small></section><section><strong>Indicadores</strong>${(project.indicators || []).map((item) => `<p>${esc(item.name)} · Meta ${item.target ?? "—"} ${esc(item.unit)}</p>`).join("") || "<p>Sin indicadores</p>"}</section></div></details><form data-review-project="${project.id}" class="jury-form"><div class="rubric-grid">${score("Impacto estratégico", "strategic_impact", review.strategic_impact)}${score("Factibilidad", "feasibility", review.feasibility)}${score("Innovación", "innovation", review.innovation)}${score("Calidad de evidencia", "evidence_quality", review.evidence_quality)}${score("Presentación", "presentation", review.presentation)}</div><label>Comentarios<textarea name="comments" required>${esc(review.comments || "")}</textarea></label><label>Recomendación<textarea name="recommendation">${esc(review.recommendation || "")}</textarea></label><button class="primary-btn">${review.submitted_at ? "Actualizar evaluación" : "Enviar evaluación"}</button></form></article>`;
-  }).join("") : '<div class="empty-state">No tiene proyectos asignados.</div>';
-}
-
-function score(label, name, value) { return `<label>${label}<select name="${name}" required><option value="">—</option>${[1,2,3,4,5].map((number) => `<option value="${number}" ${Number(value) === number ? "selected" : ""}>${number}</option>`).join("")}</select></label>`; }
-async function submitReview(event) {
-  event.preventDefault(); const button = event.submitter; setBusy(button, true); const values = Object.fromEntries(new FormData(event.currentTarget));
-  ["strategic_impact", "feasibility", "innovation", "evidence_quality", "presentation"].forEach((key) => values[key] = Number(values[key]));
-  const { error } = await supabase.from("jury_reviews").upsert({ project_id: event.currentTarget.dataset.reviewProject, reviewer_id: juryState.user.id, ...values, submitted_at: new Date().toISOString() }, { onConflict: "project_id,reviewer_id" });
-  setBusy(button, false); if (error) return toast(error.message, "error"); await loadJury(); renderJury(); toast("Evaluación guardada.");
-}
+'use strict';
+const {configured,supabase,escapeHtml:esc,toast,run,checked,allRows,requireBackend,saveRow,openPrivateFile,humanError,setupPanel,shortDate}=window.Portal;
+const state={user:null,profile:null,assignments:[],reviews:[]};const $=s=>document.querySelector(s);const dirty=new Set();
+const criteria=[['strategic_impact','Impacto estratégico'],['feasibility','Factibilidad'],['innovation','Innovación'],['evidence_quality','Calidad de evidencia'],['presentation','Presentación']];
+document.addEventListener('DOMContentLoaded',initializeJury);
+async function initializeJury(){try{
+ if(!configured||!supabase){$('#jury-config').innerHTML=setupPanel();$('#jury-config').classList.remove('hidden');return;}
+ const {session}=await checked(supabase.auth.getSession());if(!session)return deny();state.user=session.user;
+ await requireBackend();state.profile=await checked(supabase.from('profiles').select('*').eq('id',state.user.id).single());
+ if(!['jurado','admin','docente'].includes(state.profile.global_role)||state.profile.status!=='active'||state.profile.deleted_at)return deny();
+ $('#jury-name').textContent=state.profile.full_name||state.profile.email;
+ document.querySelector('[data-signout]').onclick=e=>{if(!dirty.size||confirm('¿Descartar cambios y salir?'))run(e.currentTarget,async()=>{await checked(supabase.auth.signOut());location.href='index.html';});};
+ $('#jury-projects').addEventListener('input',event=>{const form=event.target.closest('form');if(form)dirty.add(form);});
+ $('#jury-projects').addEventListener('submit',submitReview);
+ $('#jury-projects').addEventListener('click',event=>{const button=event.target.closest('[data-open-file]');if(button)openPrivateFile(button.dataset.openFile,button);});
+ window.addEventListener('beforeunload',event=>{if(dirty.size){event.preventDefault();event.returnValue='';}});
+ await loadJury();$('#jury-app').classList.remove('hidden');renderJury();
+ }catch(error){$('#jury-config').innerHTML=`<section class="setup-panel"><h2>No se pudo cargar el panel</h2><p>${esc(humanError(error))}</p><button class="primary-btn" onclick="location.reload()">Reintentar</button></section>`;$('#jury-config').classList.remove('hidden');}}
+function deny(){$('#jury-app').classList.add('hidden');$('#jury-denied').classList.remove('hidden');}
+async function loadJury(){const [assignments,reviews]=await Promise.all([allRows(()=>supabase.from('jury_assignments').select('project_id,project:projects(id,title,executive_summary,strategic_alignment,stage,team:academic_teams(name),problem_diagnosis(current_situation,impact,root_causes),prototype(description,test_results,status,evidence_url),indicators(name,indicator_type,target,current_value,unit),deliverables(id,title,file_path,submitted_at))').eq('reviewer_id',state.user.id).order('project_id')),allRows(()=>supabase.from('jury_reviews').select('*').eq('reviewer_id',state.user.id).order('id'))]);state.assignments=assignments;state.reviews=reviews;}
+function renderJury(){$('#jury-projects').innerHTML=state.assignments.map(assignment=>{const p=assignment.project;if(!p)return '<p>Un proyecto asignado ya no está disponible. Actualice el panel.</p>';const review=state.reviews.find(r=>r.project_id===p.id);const evidence=/^https?:\/\//i.test(p.prototype?.evidence_url||'')?`<a href="${esc(p.prototype.evidence_url)}" target="_blank" rel="noopener noreferrer">Abrir evidencia del prototipo</a>`:'';
+ return `<article class="jury-card"><header><div><span>${esc(p.team?.name||'Equipo')}</span><h2>${esc(p.title)}</h2><p>${esc(p.executive_summary||p.strategic_alignment)}</p></div><b>${review?'Evaluado':'Pendiente'}</b></header><details><summary>Ver evidencia del proyecto</summary><div class="jury-evidence"><section><strong>Problema e impacto</strong><p>${esc(p.problem_diagnosis?.current_situation)}</p><p>${esc(p.problem_diagnosis?.impact)}</p></section><section><strong>Prototipo</strong><p>${esc(p.prototype?.description)}</p><p>${esc(p.prototype?.test_results)}</p>${evidence}</section><section><strong>Indicadores</strong>${(p.indicators||[]).map(i=>`<p>${esc(i.name)} · Meta ${i.target??'—'} · Actual ${i.current_value??'—'} ${esc(i.unit)}</p>`).join('')}</section><section><strong>Archivos entregados</strong>${(p.deliverables||[]).map(d=>`<p>${esc(d.title)} · ${shortDate(d.submitted_at)} ${d.file_path?`<button class="ghost-btn" data-open-file="${esc(d.file_path)}">Abrir archivo</button>`:'Sin archivo'}</p>`).join('')}</section></div></details><form data-review-project="${esc(p.id)}" class="jury-form"><fieldset><div class="rubric-grid">${criteria.map(([key,label])=>`<label>${label}<select name="${key}" required><option value="">Seleccione…</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${review?.[key]===n?'selected':''}>${n}</option>`).join('')}</select></label>`).join('')}</div><label>Comentarios<textarea name="comments" required>${esc(review?.comments||'')}</textarea></label><label>Recomendación<textarea name="recommendation">${esc(review?.recommendation||'')}</textarea></label><button class="primary-btn">${review?'Actualizar evaluación':'Enviar evaluación'}</button></fieldset></form></article>`;}).join('')||'<div class="empty-state">No tiene proyectos asignados.</div>';}
+function submitReview(event){event.preventDefault();const form=event.target.closest('form[data-review-project]');if(!form)return;const values=Object.fromEntries(new FormData(form));const projectId=form.dataset.reviewProject;for(const [key]of criteria)values[key]=Number(values[key]);values.comments=values.comments.trim();values.recommendation=values.recommendation.trim();const review=state.reviews.find(r=>r.project_id===projectId);return run(event.submitter,async()=>{const fieldset=form.querySelector('fieldset');fieldset.disabled=true;try{const payload={...values};if(!review)Object.assign(payload,{project_id:projectId,reviewer_id:state.user.id});const saved=await saveRow('jury_reviews',payload,review);state.reviews=state.reviews.filter(r=>r.project_id!==projectId).concat(saved);dirty.delete(form);if(!dirty.size){await loadJury();renderJury();}toast('Evaluación guardada.');}finally{fieldset.disabled=false;}});}
 })();

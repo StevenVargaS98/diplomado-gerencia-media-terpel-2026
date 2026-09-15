@@ -1,0 +1,14 @@
+{
+  "name": "diplomado-gerencia-media-terpel-2026",
+  "version": "1.1.0",
+  "private": true,
+  "scripts": {
+    "test": "node --test --test-isolation=none tests/*.test.mjs",
+    "build:schema": "node scripts/build-schema.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "linkedom": "0.18.13"
+  }
+}

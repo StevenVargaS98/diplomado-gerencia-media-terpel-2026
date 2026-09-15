@@ -1,5 +1,11 @@
 # Arquitectura y seguridad
 
+## Versión 20260915
+
+El esquema consolidado y la migración de integridad incorporan control de cuentas activas, asignaciones de jurado, versiones de registros, historial generado en servidor y versiones de entregas. El procedimiento vigente está en [ACTUALIZAR-20260915.md](ACTUALIZAR-20260915.md) y la evidencia de revisión en [CORRECCIONES-2026-09-15.md](CORRECCIONES-2026-09-15.md).
+
+Los observadores tienen lectura académica y pueden comentar. Solo líderes, integrantes y facilitadores pueden editar contenido académico; las revisiones y aprobaciones requieren facilitador. Cada usuario solo puede mantener una membresía activa. Un jurado consulta únicamente proyectos asignados y registra su propia evaluación. Los equipos archivados cierran edición e invitaciones. La etapa `deleting` permite recuperar una eliminación interrumpida sin perder la referencia a los archivos pendientes.
+
 ## Separación de responsabilidades
 
 ```text

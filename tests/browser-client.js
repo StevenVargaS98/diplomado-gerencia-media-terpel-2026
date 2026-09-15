@@ -1,0 +1,26 @@
+/* Browser-only synthetic API. Loaded exclusively by scripts/browser-fixtures.mjs. */
+(() => {
+ const params=new URLSearchParams(location.search),actor=params.get('actor')||'leader';
+ const user={id:'30000000-0000-4000-8000-000000000003'};
+ const profile={...user,full_name:'Persona ficticia de pruebas',email:'fixture@example.invalid',global_role:actor==='observer'?'participante':actor==='leader'?'lider':actor==='jury'?'jurado':actor,status:'active'};
+ const team={id:'40000000-0000-4000-8000-000000000001',name:'Equipo de pruebas',status:'active',modality:'remoto',max_members:4,cohort:{year:2026},members:[]};
+ const project={id:'50000000-0000-4000-8000-000000000001',team_id:team.id,title:'Proyecto de pruebas',stage:'formulacion',status:'draft',progress:38,strategic_alignment:'Alineación guardada',executive_summary:'Resumen guardado',team};
+ const tables={profiles:[profile],cohorts:[{id:'c',year:2026,name:'Cohorte ficticia'}],academic_teams:[team],team_members:[{team_id:team.id,user_id:user.id,role:actor==='observer'?'observador':'lider',status:'active',team}],projects:[project],strategic_perspectives:[],problem_diagnosis:[{project_id:project.id,current_situation:'Diagnóstico guardado',cost_impact:0}],project_objectives:[{id:'o1',objective_type:'general',statement:'Objetivo general'},{id:'o2',objective_type:'specific',statement:'Objetivo específico'}],solution_alternatives:[{id:'a1',title:'Alternativa ficticia',description:'Descripción'}],action_plan:[{id:'ac1',action:'Actividad ficticia',start_date:'2026-09-17',end_date:'2026-09-20',progress:0,status:'pending'}],stakeholders:[],project_resources:[],indicators:[{id:'i1',name:'Indicador ficticio',indicator_type:'eficacia',formula:'A/B',baseline:0,target:100,current_value:0}],prototype:[{project_id:project.id,description:'Prototipo ficticio',status:'idea'}],deliverables:[{id:'d1',project_id:project.id,title:'Entrega ficticia',stage:'formulacion',status:'pending',due_at:'2026-09-17T23:59:00-05:00',file_path:''}],deliverable_versions:[],project_comments:[],activity_log:[],invitations:[],jury_assignments:[{project_id:project.id,reviewer_id:user.id,project:{...project,problem_diagnosis:{current_situation:'Diagnóstico ficticio'},prototype:{description:'Prototipo ficticio'},indicators:[],deliverables:[]}}],jury_reviews:[]};
+ for(const [name,rows] of Object.entries(tables))for(const row of rows){row.version=1;if(!['profiles','cohorts','academic_teams','team_members','projects','strategic_perspectives','invitations'].includes(name))row.project_id=project.id;}
+ const handlers=[],report=text=>{const e=document.getElementById('fixture-status');if(e)e.textContent=text;};
+ function query(table){let op='select',payload,single=false,filters=[],start=0,end=499;const q={select(){return q;},order(){return q;},range(a,b){start=a;end=b;return q;},eq(k,v){filters.push([k,v]);return q;},single(){single=true;return q;},maybeSingle(){single=true;return q;},insert(p){op='insert';payload=p;return q;},update(p){op='update';payload=p;return q;},delete(){op='delete';return q;},upsert(p){op='insert';payload=p;return q;},then(resolve,reject){return Promise.resolve().then(()=>{
+  if(params.get('fail')===table)return {data:null,error:{message:'Fallo simulado de '+table}};
+  const match=r=>filters.every(([k,v])=>r[k]===v);let data=tables[table]||[];
+  if(op==='insert'){const row={id:crypto.randomUUID(),version:1,...payload};tables[table]=data.concat(row);data=[row];}
+  else if(op==='update')data=data.filter(match).map(r=>Object.assign(r,payload,{version:r.version+1}));
+  else if(op==='delete'){data=data.filter(match);tables[table]=(tables[table]||[]).filter(r=>!match(r));}
+  else data=data.filter(match).slice(start,end+1);
+  if(op!=='select')report(`${op} ${table}: éxito simulado`);
+  return {data:single?(data[0]||null):structuredClone(data),error:null};
+ }).then(resolve,reject);}};return q;}
+ const client={auth:{getSession:async()=>({data:{session:{user}},error:null}),onAuthStateChange(){},signOut:async()=>({data:{},error:null})},from:query,
+ rpc(name,args){if(name==='get_project_comments')return query('project_comments');return new Promise(resolve=>setTimeout(()=>{let data=name==='portal_version'?20260915:name==='get_team_participants'?[{profile_id:user.id,full_name:profile.full_name,email:profile.email,member_role:'lider',can_edit:true,is_current_user:true}]:team.id;if(name==='create_invitation'){tables.invitations.push({id:crypto.randomUUID(),team_id:args.p_team,created_at:new Date().toISOString(),use_count:0});report('Invitación activada: éxito simulado');}resolve({data,error:null});},30));},
+ channel(){const c={on(type,filter,fn){handlers.push({filter,fn});return c;},subscribe(){return c;}};return c;},removeChannel(){handlers.length=0;},storage:{from(){return {upload:async()=>({data:{},error:null}),createSignedUrl:async()=>({data:{signedUrl:'about:blank'},error:null}),remove:async()=>({data:[],error:null}),list:async()=>({data:[],error:null})};}}};
+ window.fixtureRemote=()=>{report('Evento remoto simulado');handlers.find(h=>h.filter.table==='projects')?.fn();};
+ window.PORTAL_CONFIG={supabaseUrl:'https://fixture.supabase.co',supabasePublishableKey:'fixture-public'};window.supabase={createClient:()=>client};
+})();

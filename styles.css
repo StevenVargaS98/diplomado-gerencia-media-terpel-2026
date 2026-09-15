@@ -161,6 +161,36 @@ button { cursor: pointer; }
 /* Portal académico · Diplomado en Habilidades de Gerencia Media - Organización Terpel */
 .portal-body { --cobalt:#183b66; --sky:#dceaf2; --cream:#f7f4ec; --coral:#ef6a4c; --mint:#b9ddcd; --gold:#eeb957; background:var(--cream); }
 .hidden { display:none !important; }
+.update-banner { display:flex;align-items:center;justify-content:space-between;gap:16px;padding:14px;margin-bottom:18px;border:1px solid #99751a;background:#fff5d6;border-radius:12px;color:#493709; }
+.read-only-notice { padding:12px 16px;background:#edf3f7;border-radius:10px;color:#264964; }
+.structured-form { margin-bottom:20px; }
+.structured-form fieldset,.jury-form fieldset { border:0;padding:0;margin:0;min-width:0;display:grid;gap:16px; }
+.structured-form fieldset[disabled] { opacity:.85; }
+.structured-form input,.structured-form textarea,.structured-form select { min-width:0;max-width:100%; }
+.structured-form .checkbox-label { display:flex;align-items:center;gap:10px; }
+.structured-form input[type=checkbox] { width:20px;height:20px; }
+.academic-record { padding:20px!important; }
+.record-details { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 16px; }
+.record-details dt { font-size:11px;font-weight:800;color:#435865; }
+.record-details dd { margin:5px 0 0;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere; }
+.record-actions { display:flex;gap:12px; }
+.gantt-card { margin-bottom:22px; }
+.gantt-axis { display:flex;justify-content:space-between;font-size:12px;padding-bottom:10px; }
+.gantt-line { padding:10px 0;border-top:1px solid var(--line); }
+.gantt-line strong,.gantt-line small { display:block;overflow-wrap:anywhere; }
+.gantt-track { position:relative;height:16px;background:#e3e9ed;border-radius:5px;margin-top:8px;overflow:hidden; }
+.gantt-track span { position:absolute;top:0;bottom:0;background:#326882;border-radius:5px;min-width:3px; }
+.deliverable-list article { grid-template-columns:minmax(0,1fr) minmax(180px,.7fr); }
+.deliverable-list article strong,.deliverable-list article small { display:block;margin:7px 0; }
+.deliverable-list details button { overflow-wrap:anywhere;max-width:100%;text-align:left; }
+.upload-form { display:grid;gap:10px;min-width:0; }
+.upload-form label { display:grid;gap:8px;font-size:12px;font-weight:700; }
+dialog.modal { border:1px solid var(--line);width:min(720px,calc(100% - 32px));max-height:85vh;margin:auto; }
+dialog.modal::backdrop { background:rgba(12,29,45,.55);backdrop-filter:blur(3px); }
+dialog.modal .close-btn { float:right; }
+dialog.modal strong { overflow-wrap:anywhere; }
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible { outline:3px solid #165a88!important;outline-offset:3px; }
+.jury-form textarea,.jury-form select,.people-table select { font-size:14px; }
 .button-link { display:inline-block;text-decoration:none;text-align:center; }
 .center-stage { min-height:100vh;display:grid;place-items:center;padding:30px;background:radial-gradient(circle at 15% 15%,#fff 0,transparent 26%),var(--paper); }
 .setup-panel { width:min(580px,100%);background:var(--card);border:1px solid var(--line);border-radius:28px;padding:clamp(28px,5vw,50px);box-shadow:var(--shadow);text-align:center; }
@@ -322,6 +352,15 @@ button { cursor: pointer; }
 }
 
 /* Vista local de demostración sin backend */
+@media (max-width:780px) {
+  .deliverable-list article,.record-details { grid-template-columns:1fr; }
+  .update-banner { align-items:stretch;flex-direction:column; }
+  .modal { width:calc(100% - 24px);max-height:90vh;overflow:auto; }
+}
+@media (max-width:480px) {
+  .team-admin-grid,.admin-stats { grid-template-columns:1fr; }
+  .record-actions { flex-wrap:wrap; }
+}
 .preview-body { background:#eef2f6; }
 .preview-toolbar { min-height:64px;padding:10px clamp(16px,3vw,40px);display:flex;align-items:center;justify-content:space-between;gap:18px;background:#0d2730;color:#fff;position:sticky;top:0;z-index:100;box-shadow:0 10px 30px rgba(7,23,29,.2); }
 .preview-toolbar>div { display:grid;grid-template-columns:auto 1fr;align-items:center;column-gap:9px; }

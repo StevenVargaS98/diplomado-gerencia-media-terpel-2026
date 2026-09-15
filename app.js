@@ -1,402 +1,183 @@
 (() => {
-const { config, configured, libraryAvailable, supabase, escapeHtml: esc, shortDate, money, toast, setBusy, setupPanel } = window.Portal;
+'use strict';
+const {config,configured,supabase,escapeHtml:esc,shortDate,money,toast,run,checked,allRows,saveRow,requireBackend,modal,openPrivateFile,humanError,setupPanel}=window.Portal;
+const $=selector=>document.querySelector(selector);
+const show=selector=>$(selector)?.classList.remove('hidden');
+const hide=selector=>$(selector)?.classList.add('hidden');
+const SECTIONS=[['overview','Inicio','00'],['members','Equipo','M'],['diagnosis','Diagnóstico','01'],['objectives','Objetivos SMART','02'],['alternatives','Alternativas','03'],['action','Plan de acción','04'],['people','Involucrados','05'],['indicators','Indicadores','06'],['prototype','Prototipo','P'],['deliverables','Entregables','E'],['comments','Comentarios','C'],['activity','Historial','H']];
+const state={user:null,profile:null,team:null,membership:null,project:null,section:'overview',participants:[],perspectives:[],objectives:[],alternatives:[],actions:[],stakeholders:[],resources:[],indicators:[],deliverables:[],versions:[],comments:[],activity:[],diagnosis:null,prototype:null,realtime:null,administrativeAccess:false,editing:null,loadError:false};
+const dirtyForms=new Set();let remotePending=false,refreshInFlight=false,refreshRequested=false,loadGeneration=0;
+let recoveryMode=window.portalRecoveryRedirect===true||new URLSearchParams(location.hash.slice(1)).get('type')==='recovery'||new URLSearchParams(location.search).get('type')==='recovery';
+const facilitator=()=>['admin','docente'].includes(state.profile?.global_role);
+const canEdit=()=>state.profile?.status==='active'&&!state.profile?.deleted_at&&!['archived','deleting'].includes(state.team?.status)&&(facilitator()||['lider','integrante'].includes(state.membership?.role));
+const hasDraft=()=>dirtyForms.size>0||!!document.querySelector('dialog[data-dirty="true"]');
+const canLeave=()=>!hasDraft()||confirm('Tiene cambios sin guardar. ¿Descartarlos y continuar?');
+const one=(table,id,key='project_id')=>checked(supabase.from(table).select('*').eq(key,id).maybeSingle(),table);
+const rows=(table,id)=>allRows(()=>supabase.from(table).select('*').eq('project_id',id).order('id'));
 
-const SECTIONS = [
-  ["overview", "Inicio", "00"], ["members", "Equipo", "M"], ["diagnosis", "Diagnóstico", "01"], ["objectives", "Objetivos SMART", "02"],
-  ["alternatives", "Alternativas", "03"], ["action", "Plan de acción", "04"], ["people", "Involucrados", "05"],
-  ["indicators", "Indicadores", "06"], ["prototype", "Prototipo", "P"], ["deliverables", "Entregables", "E"], ["comments", "Comentarios", "C"],
-];
-
-const state = { user: null, profile: null, membership: null, team: null, project: null, section: "overview", perspectives: [], participants: [], diagnosis: null, objectives: [], alternatives: [], actions: [], stakeholders: [], resources: [], indicators: [], prototype: null, deliverables: [], comments: [], realtime: null, administrativeAccess: false };
-let recoveryMode = recoveryRedirectPresent();
-
-const el = (selector) => document.querySelector(selector);
-const show = (selector) => el(selector)?.classList.remove("hidden");
-const hide = (selector) => el(selector)?.classList.add("hidden");
-const formData = (form) => Object.fromEntries(new FormData(form));
-document.addEventListener("DOMContentLoaded", initialize);
-
-async function initialize() {
-  try {
-    if (!configured || !supabase) {
-      el("#config-view").innerHTML = libraryAvailable ? setupPanel() : fatalPanel("No se pudo cargar el componente seguro de conexión. Compruebe su acceso a cdn.jsdelivr.net y recargue la página.");
-      hide("#boot-view"); show("#config-view"); return;
-    }
-    wireAuth();
-    supabase.auth.onAuthStateChange((event, sessionValue) => {
-      if (event === "PASSWORD_RECOVERY") {
-        recoveryMode = true; showPasswordReset(); return;
-      }
-      if (!sessionValue && !recoveryMode) showAuth();
-    });
-    const { data: { session }, error } = await supabase.auth.getSession();
-    if (error) throw error;
-    if (recoveryMode && session) showPasswordReset();
-    else if (session) await enterPortal(session.user);
-    else showAuth();
-  } catch (error) {
-    showFatal(error);
-  }
+document.addEventListener('DOMContentLoaded',initialize);
+async function initialize(){
+ try{
+  if(!configured||!supabase){$('#config-view').innerHTML=setupPanel();hide('#boot-view');show('#config-view');return;}
+  wire();
+  supabase.auth.onAuthStateChange((event,session)=>{if(event==='PASSWORD_RECOVERY'){recoveryMode=true;showRecovery();}else if(!session&&!recoveryMode){stopRealtime();showAuth();}});
+  const data=await checked(supabase.auth.getSession());
+  if(recoveryMode&&data.session)showRecovery();else if(data.session)await enterPortal(data.session.user);else showAuth();
+ }catch(error){fatal(error);}
 }
+function wire(){
+ document.querySelectorAll('[data-auth-tab]').forEach(button=>button.onclick=()=>{document.querySelectorAll('[data-auth-tab]').forEach(b=>b.classList.toggle('active',b===button));$('#login-form').classList.toggle('hidden',button.dataset.authTab!=='login');$('#signup-form').classList.toggle('hidden',button.dataset.authTab!=='signup');});
+ $('#login-form').onsubmit=login;$('#signup-form').onsubmit=signup;$('#password-reset-form').onsubmit=updatePassword;
+ $('#join-form').onsubmit=joinTeam;$('#leader-team-form').onsubmit=createTeamAsLeader;$('#forgot-password').onclick=forgotPassword;
+ document.querySelectorAll('[data-signout]').forEach(button=>button.onclick=()=>{if(canLeave())run(button,async()=>{await checked(supabase.auth.signOut());stopRealtime();location.href='index.html';});});
+ $('#team-invite-btn').onclick=teamInvitationModal;$('#download-draft').onclick=e=>downloadWordDraft(e.currentTarget);
+ $('#print-project').onclick=()=>{if(hasDraft())toast('La impresión muestra la sección actual. Guarde sus cambios antes de imprimir.','error');else window.print();};
+ $('#course-nav').onclick=event=>{const b=event.target.closest('[data-section]');if(!b||!canLeave())return;dirtyForms.clear();state.editing=null;state.section=b.dataset.section;renderNavigation();renderSection();if(remotePending)refreshProject();};
+ $('#project-content').addEventListener('input',event=>{const f=event.target.closest('form');if(f)dirtyForms.add(f);});
+ $('#project-content').addEventListener('change',event=>{const f=event.target.closest('form');if(f)dirtyForms.add(f);});
+ $('#project-content').addEventListener('submit',handleSubmit);$('#project-content').addEventListener('click',handleClick);
+ window.addEventListener('beforeunload',event=>{if(hasDraft()){event.preventDefault();event.returnValue='';}});
+ window.addEventListener('online',()=>{toast('Conexión recuperada. Puede guardar o actualizar los datos.');});
+ window.addEventListener('offline',()=>toast('Sin conexión. Mantenga esta página abierta para conservar lo que está escribiendo.','error'));
+ const banner=document.createElement('div');banner.id='updates-banner';banner.className='update-banner hidden';banner.setAttribute('role','status');banner.innerHTML='<span>Hay cambios recientes o una lectura pendiente. Su borrador se conserva.</span><button type="button" class="ghost-btn">Actualizar datos</button>';
+ $('.course-main').prepend(banner);banner.querySelector('button').onclick=()=>{if(canLeave()){dirtyForms.clear();state.editing=null;refreshProject(true);}};
+}
+function showAuth(){['#boot-view','#config-view','#app-view','#join-view','#password-reset-view'].forEach(hide);show('#auth-view');}
+function showRecovery(){['#boot-view','#config-view','#app-view','#join-view','#auth-view'].forEach(hide);show('#password-reset-view');}
+function fatal(error){['#auth-view','#app-view','#join-view','#password-reset-view'].forEach(hide);$('#boot-view').innerHTML=`<section class="setup-panel"><h2>No se pudo cargar el portal</h2><p>${esc(humanError(error))}</p><button class="primary-btn" onclick="location.reload()">Intentar nuevamente</button></section>`;show('#boot-view');}
+function login(event){event.preventDefault();const form=event.currentTarget;const values=Object.fromEntries(new FormData(form));return run(event.submitter,async()=>{const data=await checked(supabase.auth.signInWithPassword({email:values.email.trim(),password:values.password}));await enterPortal(data.user);},'Ingresando…');}
+function signup(event){event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));return run(event.submitter,async()=>{const data=await checked(supabase.auth.signUp({email:values.email.trim(),password:values.password,options:{data:{full_name:values.full_name.trim()},emailRedirectTo:new URL('index.html',location.href).href}}));if(data.session)await enterPortal(data.user);else toast('Revise su correo y confirme la cuenta antes de ingresar.');},'Creando cuenta…');}
+function updatePassword(event){event.preventDefault();const form=event.currentTarget;const values=Object.fromEntries(new FormData(form));if(values.password!==values.confirmation||values.password.length<8)return toast('Use al menos 8 caracteres y confirme la misma contraseña.','error');return run(event.submitter,async()=>{await checked(supabase.auth.updateUser({password:values.password}));await checked(supabase.auth.signOut());recoveryMode=false;history.replaceState({},'',new URL('index.html',location.href));form.reset();showAuth();toast('Contraseña actualizada. Ingrese con su nueva contraseña.');},'Actualizando…');}
+function forgotPassword(event){const email=$('#login-form [name="email"]').value.trim();if(!email)return toast('Escriba primero su correo.','error');return run(event.currentTarget,async()=>{await checked(supabase.auth.resetPasswordForEmail(email,{redirectTo:new URL('index.html',location.href).href}));toast('Si la cuenta está registrada, recibirá instrucciones de recuperación.');});}
+async function enterPortal(user){
+ state.user=user;await requireBackend();
+ const profile=await one('profiles',user.id,'id');if(!profile)throw new Error('No se encontró el perfil');
+ if(profile.status!=='active'||profile.deleted_at){await checked(supabase.auth.signOut());showAuth();toast('Esta cuenta fue deshabilitada. Consulte al administrador.','error');return;}
+ state.profile=profile;if(profile.global_role==='jurado'){location.href='jury.html';return;}
+ const requested=new URLSearchParams(location.search).get('team');state.administrativeAccess=!!requested&&facilitator();
+ if(state.administrativeAccess){state.team=await checked(supabase.from('academic_teams').select('*,cohort:cohorts(name,year)').eq('id',requested).single());state.membership={role:'facilitador'};}
+ else {const membership=await checked(supabase.from('team_members').select('role,status,team:academic_teams(*,cohort:cohorts(name,year))').eq('user_id',user.id).eq('status','active').maybeSingle());state.membership=membership;state.team=membership?.team;}
+ ['#boot-view','#auth-view','#password-reset-view'].forEach(hide);
+ if(!state.team){renderMembershipCenter();return;}
+ await loadWorkspace();hide('#join-view');show('#app-view');
+}
+function renderMembershipCenter(){hide('#app-view');show('#join-view');$('#membership-name').textContent=state.profile.full_name||'Cuenta académica';$('#membership-email').textContent=state.profile.email;$('#membership-role').textContent=state.profile.global_role;$('#leader-create-card').classList.toggle('hidden',state.profile.global_role!=='lider');$('#leader-wait-card').classList.toggle('hidden',state.profile.global_role==='lider');$('#membership-admin-link').classList.toggle('hidden',!facilitator());}
+function joinTeam(event){event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));return run(event.submitter,async()=>{await checked(supabase.rpc('join_with_invitation',{raw_code:values.invitation,participant_name:state.profile.full_name||state.profile.email}));await enterPortal(state.user);toast('Ya hace parte del equipo.');});}
+function createTeamAsLeader(event){event.preventDefault();const values=Object.fromEntries(new FormData(event.currentTarget));return run(event.submitter,async()=>{await checked(supabase.rpc('create_team_as_leader',{p_name:values.name,p_modality:values.modality,p_max_members:Number(values.max_members)}));await enterPortal(state.user);toast('Equipo creado.');});}
+async function loadWorkspace(){
+ const [perspectives,project,participants]=await Promise.all([allRows(()=>supabase.from('strategic_perspectives').select('*').order('sort_order')),one('projects',state.team.id,'team_id'),checked(supabase.rpc('get_team_participants',{p_team:state.team.id}))]);
+ const data=project?await fetchProjectData(project.id):{};Object.assign(state,data,{perspectives,project,participants,loadError:false});
+ $('#profile-name').textContent=state.profile.full_name||state.profile.email;$('#team-label').textContent=`${state.team.name} · ${state.team.modality}`;$('#admin-link').classList.toggle('hidden',!facilitator());$('#team-invite-btn').classList.toggle('hidden',state.membership?.role!=='lider'||!canEdit());$('#admin-workspace-banner').classList.toggle('hidden',!state.administrativeAccess);$('#admin-workspace-team').textContent=state.team.name;
+ renderNavigation();if(!project){renderCreateProject();return;}hide('#project-empty');show('#project-content');renderSection();subscribeRealtime();
+}
+async function fetchProjectData(id){
+ const keys=['diagnosis','objectives','alternatives','actions','stakeholders','resources','indicators','prototype','deliverables','versions','comments','activity'];
+ const values=await Promise.all([one('problem_diagnosis',id),rows('project_objectives',id),rows('solution_alternatives',id),rows('action_plan',id),rows('stakeholders',id),rows('project_resources',id),rows('indicators',id),one('prototype',id),rows('deliverables',id),rows('deliverable_versions',id),allRows(()=>supabase.rpc('get_project_comments',{p_project:id}).order('created_at',{ascending:false})),allRows(()=>supabase.from('activity_log').select('*').eq('project_id',id).order('id',{ascending:false}))]);
+ return Object.fromEntries(keys.map((key,index)=>[key,values[index]]));
+}
+async function refreshProject(explicit=false){
+ if(!state.project)return;if(refreshInFlight){refreshRequested=true;return;}if(hasDraft()&&!explicit){remotePending=true;show('#updates-banner');return;}
+ refreshInFlight=true;const generation=++loadGeneration;
+ try{
+  const profile=await one('profiles',state.user.id,'id');
+  if(!profile||profile.status!=='active'||profile.deleted_at){await checked(supabase.auth.signOut());showAuth();return;}
+  const [project,team,participants]=await Promise.all([one('projects',state.project.id,'id'),one('academic_teams',state.team.id,'id'),checked(supabase.rpc('get_team_participants',{p_team:state.team.id}))]);
+  if(!project||!team)throw new Error('El proyecto ya no está disponible o perdió acceso.');
+  const [data,membership]=await Promise.all([fetchProjectData(project.id),state.administrativeAccess?Promise.resolve(state.membership):checked(supabase.from('team_members').select('role,status').eq('team_id',team.id).eq('user_id',state.user.id).eq('status','active').maybeSingle())]);
+  if(generation!==loadGeneration)return;
+  if(hasDraft()){remotePending=true;show('#updates-banner');return;}
+  Object.assign(state,data,{project,profile,team,participants,membership,loadError:false});
+  remotePending=false;hide('#updates-banner');renderNavigation();renderSection();
+ }catch(error){state.loadError=true;remotePending=true;show('#updates-banner');toast(humanError(error),'error');}
+ finally{refreshInFlight=false;if(refreshRequested){refreshRequested=false;setTimeout(()=>refreshProject(),0);}}
+}
+function stopRealtime(){if(state.realtime)supabase.removeChannel(state.realtime);state.realtime=null;loadGeneration++;}
+function subscribeRealtime(){stopRealtime();let timer;const refresh=()=>{clearTimeout(timer);timer=setTimeout(()=>refreshProject(),500);};const channel=supabase.channel(`project-${state.project.id}`);
+ for(const table of ['problem_diagnosis','project_objectives','solution_alternatives','action_plan','stakeholders','project_resources','indicators','prototype','deliverables','project_comments'])channel.on('postgres_changes',{event:'*',schema:'public',table,filter:`project_id=eq.${state.project.id}`},refresh);
+ channel.on('postgres_changes',{event:'*',schema:'public',table:'projects',filter:`id=eq.${state.project.id}`},refresh);
+ channel.on('postgres_changes',{event:'*',schema:'public',table:'team_members',filter:`team_id=eq.${state.team.id}`},refresh);
+ channel.on('postgres_changes',{event:'*',schema:'public',table:'academic_teams',filter:`id=eq.${state.team.id}`},refresh);
+ channel.on('postgres_changes',{event:'*',schema:'public',table:'profiles',filter:`id=eq.${state.user.id}`},refresh);
+ state.realtime=channel.subscribe(status=>{if(['CHANNEL_ERROR','TIMED_OUT','CLOSED'].includes(status)){remotePending=true;show('#updates-banner');}});
+}
+function renderCreateProject(){hide('#project-content');show('#project-empty');$('#project-empty').innerHTML=`${head('Proyecto','Defina el reto estratégico')}${canEdit()?`<form id="create-project-form" class="section-card"><label>Título<input name="title" required></label><label>Perspectiva estratégica<select name="perspective_id"><option value="">Sin definir</option>${state.perspectives.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></label><label>Alineación estratégica<textarea name="strategic_alignment" required></textarea></label><button class="primary-btn">Crear proyecto</button></form>`:'<p>El equipo aún no ha creado su proyecto.</p>'}`;const f=$('#create-project-form');if(f){f.onsubmit=createProject;f.oninput=()=>dirtyForms.add(f);f.onchange=()=>dirtyForms.add(f);}}
+function createProject(event){event.preventDefault();const form=event.currentTarget;const values=Object.fromEntries(new FormData(form));return run(event.submitter,async()=>{await checked(supabase.rpc('create_project',{p_team:state.team.id,p_title:values.title,p_alignment:values.strategic_alignment,p_perspective:values.perspective_id||null}));dirtyForms.delete(form);await loadWorkspace();toast('Proyecto y entregables creados.');});}
 
-function wireAuth() {
-  document.querySelectorAll("[data-auth-tab]").forEach((button) => button.addEventListener("click", () => {
-    document.querySelectorAll("[data-auth-tab]").forEach((item) => item.classList.toggle("active", item === button));
-    el("#login-form").classList.toggle("hidden", button.dataset.authTab !== "login");
-    el("#signup-form").classList.toggle("hidden", button.dataset.authTab !== "signup");
-  }));
-  el("#login-form").addEventListener("submit", login);
-  el("#signup-form").addEventListener("submit", signup);
-  el("#password-reset-form").addEventListener("submit", updatePassword);
-  el("#join-form").addEventListener("submit", joinTeam);
-  el("#leader-team-form").addEventListener("submit", createTeamAsLeader);
-  el("#team-invite-btn").addEventListener("click", teamInvitationModal);
-  el("#forgot-password").addEventListener("click", forgotPassword);
-  document.querySelectorAll("[data-signout]").forEach((button) => button.addEventListener("click", async () => { await supabase.auth.signOut(); window.location.href = "index.html"; }));
-  el("#print-project").addEventListener("click", () => window.print());
-  el("#download-draft").addEventListener("click", (event) => downloadWordDraft(event.currentTarget));
-  el("#course-nav").addEventListener("click", (event) => { const button = event.target.closest("[data-section]"); if (!button) return; state.section = button.dataset.section; renderNavigation(); renderSection(); });
-  el("#project-content").addEventListener("submit", handleSectionSubmit);
-  el("#project-content").addEventListener("click", handleSectionClick);
-  el("#project-content").addEventListener("change", handleSectionChange);
+// Definiciones compartidas por altas y edición; valores de control nunca provienen de HTML arbitrario.
+const DEFINITIONS={
+ project:{table:'projects',state:'project',single:true,title:'Presentación general',fields:[['title','Título','text',true],['perspective_id','Perspectiva estratégica','perspective'],['strategic_alignment','Alineación estratégica','textarea',true],['executive_summary','Resumen ejecutivo','textarea']]},
+ diagnosis:{table:'problem_diagnosis',state:'diagnosis',single:true,title:'Diagnóstico',fields:[['current_situation','Situación actual','textarea',true],['justification','Justificación','textarea'],['impact','Impacto','textarea'],['physical_location','Ubicación física','textarea'],['people_involved','Involucrados','textarea'],['magnitude','Magnitud','textarea'],['chronology','Perspectiva cronológica','textarea'],['root_causes','Causas raíz','textarea'],['relevant_data','Datos y métricas','textarea'],['cost_impact','Impacto económico (COP)','nonnegative'],['service_impact','Impacto en servicio','textarea'],['quality_impact','Impacto en calidad','textarea'],['organizational_capabilities','Capacidades organizacionales','textarea']]},
+ objective:{table:'project_objectives',state:'objectives',title:'Objetivo',fields:[['objective_type','Tipo','select',true,[['general','General'],['specific','Específico']]],['statement','Redacción SMART','textarea',true],['metric','Métrica','text'],['baseline','Línea base','number'],['target','Meta','number'],['unit','Unidad','text'],['deadline','Fecha límite','date']]},
+ alternative:{table:'solution_alternatives',state:'alternatives',title:'Alternativa',fields:[['title','Título','text',true],['description','Descripción','textarea',true],['expected_impact','Impacto esperado','textarea'],['feasibility_score','Factibilidad (1–5)','score'],['impact_score','Impacto (1–5)','score'],['cost_score','Costo favorable (1–5)','score'],['selected','Seleccionar esta alternativa','checkbox'],['selection_rationale','Justificación de selección','textarea']]},
+ action:{table:'action_plan',state:'actions',title:'Acción',fields:[['objective_id','Objetivo relacionado','objective'],['action','Qué se hará','text',true],['method','Cómo se hará','textarea'],['owner_name','Responsable','text'],['start_date','Inicio','date'],['end_date','Fin','date'],['status','Estado','select',true,[['pending','Pendiente'],['in_progress','En curso'],['blocked','Bloqueada'],['completed','Completada']]],['progress','Avance (%)','percent']]},
+ stakeholder:{table:'stakeholders',state:'stakeholders',title:'Involucrado',fields:[['person_name','Persona','text',true],['project_role','Rol','text',true],['functions','Funciones','textarea',true],['dedication_hours','Horas de dedicación','nonnegative'],['dedication_period','Periodicidad','text'],['area','Área','text'],['is_team_member','Integrante del equipo','checkbox']]},
+ resource:{table:'project_resources',state:'resources',title:'Recurso',fields:[['resource_type','Tipo','select',true,['humano','tecnologico','financiero','fisico','informacion','otro'].map(x=>[x,x])],['description','Descripción','textarea',true],['estimated_cost','Costo estimado (COP)','nonnegative'],['availability','Disponibilidad','textarea']]},
+ indicator:{table:'indicators',state:'indicators',title:'Indicador',fields:[['objective_id','Objetivo relacionado','objective'],['name','Nombre','text',true],['indicator_type','Tipo','select',true,[['eficacia','Eficacia'],['eficiencia','Eficiencia'],['impacto','Impacto']]],['formula','Fórmula','text',true],['baseline','Línea base','number'],['target','Meta','number'],['current_value','Valor actual','number'],['unit','Unidad','text'],['frequency','Frecuencia','text'],['data_source','Fuente de datos','text'],['owner_name','Responsable','text']]},
+ prototype:{table:'prototype',state:'prototype',single:true,title:'Prototipo',fields:[['prototype_type','Tipo de prototipo','text'],['status','Estado','select',true,[['idea','Idea'],['design','Diseño'],['testing','Pruebas'],['validated','Validado']]],['value_proposition','Propuesta de valor','textarea'],['description','Descripción','textarea',true],['hypothesis','Hipótesis','textarea'],['validation_method','Método de validación','textarea'],['test_results','Resultados de prueba','textarea'],['evidence_url','Enlace a evidencia','url']]}
+};
+function field(def,record={}){
+ const [name,label,type,required,choices]=def;const v=record?.[name]??'';const req=required?'required':'';
+ if(type==='textarea')return `<label>${label}<textarea name="${name}" ${req}>${esc(v)}</textarea></label>`;
+ if(type==='checkbox')return `<label class="checkbox-label"><input type="checkbox" name="${name}" ${v===true?'checked':''}>${label}</label>`;
+ if(['select','objective','perspective'].includes(type)){const options=type==='objective'?[['','Sin vincular'],...state.objectives.map(o=>[o.id,o.statement])]:type==='perspective'?[['','Sin definir'],...state.perspectives.map(p=>[p.id,p.name])]:choices;return `<label>${label}<select name="${name}" ${req}>${options.map(([value,text])=>`<option value="${esc(value)}" ${String(v)===String(value)?'selected':''}>${esc(text)}</option>`).join('')}</select></label>`;}
+ const numeric=['number','nonnegative','score','percent'].includes(type);const bounds=type==='score'?'min="1" max="5" step="1"':type==='percent'?'min="0" max="100" step="1"':type==='nonnegative'?'min="0" step="any"':numeric?'step="any"':'';
+ return `<label>${label}<input name="${name}" type="${numeric?'number':type}" value="${esc(v)}" ${req} ${bounds}></label>`;
 }
+function formFor(type,record){const def=DEFINITIONS[type];const fields=[...def.fields];if(type==='project'&&facilitator())fields.push(['stage','Etapa','select',true,[['formulacion','Formulación'],['prototipo','Prototipo'],['shark_tank','Shark tank'],['completed','Finalizado']]],['status','Estado del proyecto','select',true,['draft','in_review','changes_requested','approved','presented'].map(x=>[x,x])]);return `<form class="section-card structured-form" data-form="${type}" data-record-id="${esc(record?.id||'')}"><h3>${record?'Editar':'Agregar'} ${def.title.toLowerCase()}</h3><fieldset ${canEdit()?'':'disabled'}>${fields.map(f=>field(f,record)).join('')}${canEdit()?`<button class="primary-btn">Guardar ${def.title.toLowerCase()}</button>${!def.single&&record?'<button class="text-btn" type="button" data-cancel-edit>Cancelar edición</button>':''}`:''}</fieldset></form>`;}
+function displayValue(def,record){const [name,,type, ,choices]=def;const value=record[name];if(value===null||value===undefined||value==='')return 'Por completar';if(type==='checkbox')return value?'Sí':'No';if(type==='date')return shortDate(value);if(type==='objective')return state.objectives.find(o=>o.id===value)?.statement||'Objetivo retirado';if(type==='perspective')return state.perspectives.find(p=>p.id===value)?.name||'Sin definir';if(type==='select')return choices.find(([k])=>k===value)?.[1]||value;if(name==='estimated_cost')return money(value);return String(value);}
+function recordsFor(type){const def=DEFINITIONS[type];const records=state[def.state]||[];return `<div class="record-list">${records.map(record=>`<article class="academic-record"><dl class="record-details">${def.fields.map(f=>`<div><dt>${esc(f[1])}</dt><dd>${esc(displayValue(f,record))}</dd></div>`).join('')}</dl>${canEdit()?`<div class="record-actions"><button class="ghost-btn" data-edit="${type}" data-id="${esc(record.id)}" aria-label="Editar ${def.title.toLowerCase()}: ${esc(record.title||record.name||record.statement||record.action||record.person_name||record.description)}">Editar</button><button class="danger-btn" data-delete="${type}" data-id="${esc(record.id)}" aria-label="Eliminar ${def.title.toLowerCase()}: ${esc(record.title||record.name||record.statement||record.action||record.person_name||record.description)}">Eliminar</button></div>`:''}</article>`).join('')||empty('Todavía no hay registros.')}</div>`;}
+function component(type){const def=DEFINITIONS[type];const record=def.single?state[def.state]:state.editing?.type===type?state[def.state].find(r=>r.id===state.editing.id):null;return `${(canEdit()||def.single)?formFor(type,record):''}${def.single?'':recordsFor(type)}`;}
+function head(kicker,title,description=''){return `<header class="section-head"><div><span class="eyebrow">${esc(kicker)}</span><h1>${esc(title)}</h1><p>${esc(description)}</p></div></header>`;}
+function empty(message){return `<div class="empty-state">${esc(message)}</div>`;}
+function calculateProgress(){return Number(state.project?.progress||0);}
+function renderNavigation(){$('#course-nav').innerHTML=SECTIONS.map(([key,label,n])=>`<button data-section="${key}" class="${key===state.section?'active':''}" ${key===state.section?'aria-current="page"':''}><span>${n}</span>${label}</button>`).join('');}
+function renderSection(){if(!state.project)return;const renderers={overview:renderOverview,members:renderMembers,diagnosis:()=>head('Diagnóstico','Diagnóstico y situación actual')+component('diagnosis'),objectives:()=>head('Objetivos','Objetivos SMART')+component('objective'),alternatives:()=>head('Solución','Alternativas de solución')+component('alternative'),action:()=>head('Ejecución','Plan de acción y cronograma')+renderGantt()+component('action'),people:()=>head('Equipo y presupuesto','Involucrados y recursos')+component('stakeholder')+component('resource'),indicators:()=>head('Resultados','Indicadores de eficacia y eficiencia')+component('indicator'),prototype:()=>head('Validación','Diseño y validación del prototipo')+component('prototype'),deliverables:renderDeliverables,comments:renderComments,activity:renderActivity};$('#project-content').innerHTML=(!canEdit()?'<p class="read-only-notice">Este espacio está en modo de consulta.</p>':'')+renderers[state.section]();$('#overall-progress').textContent=`${calculateProgress()}%`;$('#overall-bar').style.width=`${calculateProgress()}%`;}
+function renderOverview(){return `${head('Proyecto de aplicación',state.project.title,'Avance de ocho componentes: diagnóstico, objetivos, alternativa, plan, recursos, indicadores, validación y entregas aprobadas.')}<div class="project-metrics"><article><span>Avance académico</span><strong>${calculateProgress()}%</strong><small>Incluye validación y aprobación</small></article><article><span>Etapa</span><strong>${esc(state.project.stage)}</strong><small>${esc(state.project.status)}</small></article></div>${component('project')}`;}
+function renderMembers(){return `${head('Colaboración','Integrantes del equipo')}<section class="team-roster-card"><strong>${state.participants.length}/${state.team.max_members} integrantes</strong><div class="team-roster-grid">${state.participants.map(p=>`<article class="team-member-card"><div><strong>${esc(p.full_name||p.email)}</strong><p><a href="mailto:${esc(p.email)}">${esc(p.email)}</a></p><span>${esc(p.member_role)} · ${p.can_edit?'Edición':'Consulta'}</span></div></article>`).join('')}</div></section>`;}
+function renderGantt(){const dated=state.actions.filter(a=>a.start_date&&a.end_date&&a.end_date>=a.start_date);if(!dated.length)return empty('Agregue fechas válidas al plan para visualizar el cronograma.');const ms=d=>new Date(`${d}T12:00:00`).getTime();const start=Math.min(...dated.map(a=>ms(a.start_date))),end=Math.max(...dated.map(a=>ms(a.end_date))),duration=Math.max(86400000,end-start+86400000);return `<section class="gantt-card"><h3>Cronograma Gantt</h3><div class="gantt-axis"><span>${shortDate(new Date(start))}</span><span>${shortDate(new Date(end))}</span></div>${dated.map(a=>`<div class="gantt-line"><strong>${esc(a.action)}</strong><small>${shortDate(a.start_date)} → ${shortDate(a.end_date)} · ${esc(a.owner_name)}</small><div class="gantt-track" role="img" aria-label="${esc(a.action)}: ${shortDate(a.start_date)} a ${shortDate(a.end_date)}"><span style="left:${100*(ms(a.start_date)-start)/duration}%;width:${100*(ms(a.end_date)-ms(a.start_date)+86400000)/duration}%"></span></div></div>`).join('')}</section>`;}
+function renderDeliverables(){return `${head('Seguimiento académico','Entregables y fechas clave','Archivos privados de hasta 25 MB. Los reemplazos se conservan en el historial.')}<div class="deliverable-list">${[...state.deliverables].sort((a,b)=>a.due_at.localeCompare(b.due_at)).map(d=>`<article><div><span class="status ${esc(d.status)}">${esc(d.status)}</span><strong>${esc(d.title)}</strong><small>Vence: ${shortDate(d.due_at)}</small><p>${esc(d.reviewer_feedback)}</p>${d.file_path?`<button class="ghost-btn" data-open-file="${esc(d.file_path)}">Abrir entrega actual</button>`:''}<details><summary>Versiones anteriores</summary>${state.versions.filter(v=>v.deliverable_id===d.id).sort((a,b)=>b.submitted_at.localeCompare(a.submitted_at)).map(v=>`<p>${shortDate(v.submitted_at)} <button class="text-btn" data-open-file="${esc(v.file_path)}">Abrir ${esc(v.file_path.split('/').pop())}</button></p>`).join('')||'<p>Sin archivos.</p>'}</details></div>${canEdit()?`<form class="upload-form" data-form="upload" data-deliverable="${esc(d.id)}"><label>Archivo para ${esc(d.title)}<input name="file" type="file" accept=".pdf,.ppt,.pptx,.doc,.docx,.xlsx,.png,.jpg,.jpeg" required></label><button class="ghost-btn">${d.file_path?'Reemplazar':'Entregar'}</button></form>`:''}</article>`).join('')}</div><section class="word-export-card"><div><h3>Borrador completo del proyecto</h3><p>Contiene los datos guardados y los resultados de los indicadores.</p></div><button class="word-download-btn" data-download-draft>Descargar borrador Word</button></section>`;}
+function renderComments(){return `${head('Conversación del equipo','Comentarios y retroalimentación')}<form class="comment-form" data-form="comment"><label>Sección<select name="section"><option value="general">General</option>${SECTIONS.map(([k,n])=>`<option value="${k}">${n}</option>`).join('')}</select></label><label>Comentario<textarea name="body" required></textarea></label><button class="primary-btn">Publicar comentario</button></form><div class="comment-list">${state.comments.map(c=>`<article><div><strong>${esc(c.author?.full_name||'Usuario del portal')}</strong><small>${shortDate(c.created_at)} · ${esc(c.section)}</small><p>${esc(c.body)}</p></div></article>`).join('')||empty('Todavía no hay comentarios.')}</div>`;}
+function renderActivity(){return `${head('Trazabilidad','Historial de actividad','Registro generado por el servidor.')}<div class="record-list">${state.activity.map(a=>`<article><div><strong>${esc(a.action)} · ${esc(a.entity_type)}</strong><p>${esc(state.participants.find(p=>p.profile_id===a.actor_id)?.full_name|| (a.actor_id?'Usuario autorizado':'Sistema'))}</p><small>${new Date(a.created_at).toLocaleString('es-CO')}</small></div></article>`).join('')||empty('Todavía no hay movimientos.')}</div>`;}
 
-function showAuth() { hide("#boot-view"); hide("#config-view"); hide("#app-view"); hide("#join-view"); hide("#password-reset-view"); show("#auth-view"); }
-
-function showPasswordReset() {
-  hide("#boot-view"); hide("#config-view"); hide("#auth-view"); hide("#app-view"); hide("#join-view");
-  show("#password-reset-view");
-  window.setTimeout(() => el('#password-reset-form [name="password"]')?.focus(), 50);
+function payloadFor(type,form){const def=DEFINITIONS[type];const fields=[...def.fields];if(type==='project'&&facilitator())fields.push(['stage','','text'],['status','','text']);const values=Object.fromEntries(new FormData(form));const result={};for(const [name,,kind] of fields){if(kind==='checkbox')result[name]=!!form.querySelector(`[name="${name}"]`)?.checked;else if(['number','score','percent','nonnegative'].includes(kind))result[name]=values[name]===''||values[name]===undefined?(name==='estimated_cost'||name==='progress'?0:null):Number(values[name]);else if(['date','objective','perspective'].includes(kind))result[name]=values[name]||null;else result[name]=(values[name]||'').trim();}
+ if(type==='action'&&result.start_date&&result.end_date&&result.end_date<result.start_date)throw new Error('La fecha final no puede ser anterior al inicio.');
+ if(type==='action'&&result.status==='completed')result.progress=100;
+ if(type==='alternative'&&result.selected&&!result.selection_rationale)throw new Error('Justifique por qué seleccionó esta alternativa.');
+ if(type==='prototype'&&result.evidence_url&&!/^https?:\/\//i.test(result.evidence_url))throw new Error('Use una URL de evidencia http o https.');
+ return result;
 }
-
-function fatalPanel(message) {
-  return `<section class="setup-panel"><div class="setup-icon">!</div><span class="eyebrow">No se pudo iniciar</span><h2>El portal encontró un inconveniente</h2><p>${esc(message)}</p><button class="primary-btn" onclick="location.reload()">Intentar nuevamente</button><a class="text-btn button-link" href="preview.html">Abrir la demostración</a></section>`;
+function handleSubmit(event){event.preventDefault();const form=event.target.closest('form');if(!form)return;const type=form.dataset.form;if(type==='upload')return uploadDeliverable(form,event.submitter);return run(event.submitter,async()=>{
+ if(state.loadError)throw new Error('No se completó la lectura de datos. Conserve su texto y actualice antes de guardar.');
+ if(type==='comment'){await checked(supabase.from('project_comments').insert({project_id:state.project.id,section:form.elements.section.value,body:form.elements.body.value.trim(),author_id:state.user.id}));dirtyForms.delete(form);form.reset();await refreshProject();toast('Comentario publicado.');return;}
+ if(!canEdit())throw new Error('Este equipo está en modo de consulta.');
+ const def=DEFINITIONS[type];if(!def)return;
+ const payload=payloadFor(type,form);const existing=def.single?state[def.state]:state[def.state].find(r=>r.id===form.dataset.recordId);
+ if(!existing){payload.project_id=state.project.id;if(def.single)payload.updated_by=state.user.id;else payload.created_by=state.user.id;}
+ const fieldset=form.querySelector('fieldset');if(fieldset)fieldset.disabled=true;
+ try{const saved=await saveRow(def.table,payload,existing,def.single&&type!=='project'?'project_id':'id');dirtyForms.delete(form);if(def.single)state[def.state]=saved;else {state[def.state]=state[def.state].filter(r=>r.id!==saved.id).concat(saved);form.dataset.recordId=saved.id;}if(!hasDraft()){state.editing=null;await refreshProject();}else {remotePending=true;show('#updates-banner');}toast('Cambios guardados.');}
+ finally{if(fieldset)fieldset.disabled=!canEdit();}
+ });}
+function handleClick(event){const button=event.target.closest('button');if(!button)return;
+ if(button.hasAttribute('data-download-draft'))return downloadWordDraft(button);
+ if(button.dataset.openFile)return openPrivateFile(button.dataset.openFile,button);
+ if(button.hasAttribute('data-cancel-edit')){if(canLeave()){dirtyForms.clear();state.editing=null;renderSection();}return;}
+ if(button.dataset.edit){if(canLeave()){dirtyForms.clear();state.editing={type:button.dataset.edit,id:button.dataset.id};renderSection();$('#project-content form input, #project-content form textarea')?.focus();}return;}
+ if(button.dataset.delete&&canEdit()&&canLeave()&&confirm('¿Eliminar este registro?'))return run(button,async()=>{const def=DEFINITIONS[button.dataset.delete];const record=state[def.state].find(r=>r.id===button.dataset.id);const deleted=await checked(supabase.from(def.table).delete().eq('id',record.id).eq('version',record.version).select());if(deleted?.length!==1)throw new Error('El registro cambió o perdió permisos. Actualice antes de eliminar.');dirtyForms.clear();state.editing=null;await refreshProject();toast('Registro eliminado.');});
 }
-
-function showFatal(error) {
-  hide("#auth-view"); hide("#app-view"); hide("#join-view"); hide("#password-reset-view"); hide("#config-view");
-  const message = error?.message || "Error inesperado al conectar el portal.";
-  el("#boot-view").innerHTML = fatalPanel(message); show("#boot-view");
+async function uploadDeliverable(form,button){const file=form.elements.file.files[0];if(!file)return;return run(button,async()=>{
+ if(!canEdit()||state.loadError)throw new Error('Actualice sus permisos y datos antes de entregar.');
+ if(file.size>25*1024*1024)throw new Error('El archivo supera el límite de 25 MB.');
+ if(!/\.(pdf|pptx?|docx?|xlsx|png|jpe?g)$/i.test(file.name))throw new Error('Formato de archivo no permitido.');
+ const d=state.deliverables.find(d=>d.id===form.dataset.deliverable);const safe=file.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'-');const path=`${state.team.id}/${state.project.id}/${d.stage}/${state.user.id}/${crypto.randomUUID()}-${safe}`;
+ await checked(supabase.storage.from('deliverables').upload(path,file,{upsert:false}));
+ try{await saveRow('deliverables',{file_path:path},d);}catch(error){const cleanup=await supabase.storage.from('deliverables').remove([path]);if(cleanup.error)throw new Error(`${humanError(error)} La limpieza del archivo pendiente debe revisarla administración.`);throw error;}
+ dirtyForms.delete(form);form.reset();await refreshProject();toast('Entrega guardada. La versión anterior se conserva.');
+ },'Subiendo…');}
+function downloadWordDraft(button){if(!state.project)return;return run(button,async()=>{if(hasDraft())throw new Error('Guarde o descarte los cambios pendientes antes de exportar.');await refreshProject();if(state.loadError)throw new Error('No se puede exportar información que no pudo actualizarse.');if(!window.WordExporter)throw new Error('Recargue para cargar el generador de Word.');const filename=await window.WordExporter.downloadDraft({config,state,progress:calculateProgress()});toast(`Se descargó ${filename}.`);},'Preparando Word…');}
+function permanentInviteCode(){const bytes=crypto.getRandomValues(new Uint8Array(12));return `GM26-${Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('').toUpperCase()}`;}
+function teamInvitationModal(){if(state.membership?.role!=='lider'||!canEdit())return;const code=permanentInviteCode();const dialog=modal(`<h2>Invitar integrantes</h2><p>Comparta el código únicamente con las personas del equipo. Puede revocarlo aquí.</p><form class="modal-form"><label>Código<input name="code" value="${code}" readonly></label><button class="primary-btn">Activar código</button></form><div class="invitation-result"></div><div class="invitation-list"></div>`,'Invitaciones del equipo');
+ const load=async()=>{const list=await allRows(()=>supabase.from('invitations').select('id,created_at,revoked_at,use_count').eq('team_id',state.team.id).order('created_at',{ascending:false}));dialog.querySelector('.invitation-list').innerHTML=list.map(i=>`<p>${shortDate(i.created_at)} · ${i.use_count} ingresos · ${i.revoked_at?'Revocada':`<button class="text-btn" data-revoke="${esc(i.id)}">Revocar</button>`}</p>`).join('');};
+ run(null,load);dialog.querySelector('form').onsubmit=event=>{event.preventDefault();const form=event.currentTarget;return run(event.submitter,async()=>{await checked(supabase.rpc('create_invitation',{p_team:state.team.id,raw_code:code,p_role:'integrante',p_max_uses:2147483647,p_expires_at:null}));form.classList.add('hidden');dialog.dataset.dirty='false';dialog.querySelector('.invitation-result').innerHTML=`<p>Código activo:</p><strong>${code}</strong><button class="ghost-btn" data-copy-code>Copiar código</button>`;await load();});};
+ dialog.addEventListener('click',event=>{const b=event.target.closest('button');if(b?.hasAttribute('data-copy-code'))run(b,async()=>{await navigator.clipboard.writeText(code);toast('Código copiado.');});if(b?.dataset.revoke)run(b,async()=>{await checked(supabase.rpc('revoke_invitation',{p_invitation:b.dataset.revoke}));await load();toast('Invitación revocada.');});});
 }
-
-async function login(event) {
-  event.preventDefault(); const button = event.submitter; setBusy(button, true, "Ingresando…");
-  const values = formData(event.currentTarget);
-  const { data, error } = await supabase.auth.signInWithPassword({ email: values.email.trim(), password: values.password });
-  setBusy(button, false); if (error) return toast(humanError(error), "error");
-  await enterPortal(data.user);
-}
-
-async function signup(event) {
-  event.preventDefault(); const button = event.submitter; setBusy(button, true, "Creando cuenta…");
-  const values = formData(event.currentTarget);
-  const { data, error } = await supabase.auth.signUp({ email: values.email.trim(), password: values.password, options: { data: { full_name: values.full_name.trim() }, emailRedirectTo: new URL("index.html", window.location.href).href } });
-  setBusy(button, false); if (error) return toast(humanError(error), "error");
-  if (data.session) await enterPortal(data.user); else toast("Revise su correo y confirme la cuenta antes de ingresar.");
-}
-
-async function updatePassword(event) {
-  event.preventDefault(); const button = event.submitter; const values = formData(event.currentTarget);
-  if (values.password !== values.confirmation) return toast("Las contraseñas no coinciden.", "error");
-  if (values.password.length < 8) return toast("La contraseña debe tener al menos 8 caracteres.", "error");
-  setBusy(button, true, "Cambiando…");
-  const { error } = await supabase.auth.updateUser({ password: values.password });
-  if (error) { setBusy(button, false); return toast(humanError(error), "error"); }
-  recoveryMode = false;
-  window.history.replaceState({}, "", new URL("index.html", window.location.href).href);
-  await supabase.auth.signOut();
-  event.currentTarget.reset(); showAuth();
-  toast("Contraseña actualizada. Ya puede ingresar con la nueva contraseña.");
-}
-
-async function forgotPassword() {
-  const email = el('#login-form [name="email"]').value.trim();
-  if (!email) return toast("Escriba primero su correo electrónico.", "error");
-  const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: new URL("index.html", window.location.href).href });
-  if (error) return toast(humanError(error), "error"); toast("Enviamos las instrucciones de recuperación.");
-}
-
-async function enterPortal(user) {
-  state.user = user; hide("#boot-view"); hide("#auth-view"); hide("#password-reset-view");
-  const { data: profile, error: profileError } = await supabase.from("profiles").select("*").eq("id", user.id).single();
-  if (profileError || !profile) return showFatal(profileError || new Error("No se encontró el perfil de esta cuenta.")); state.profile = profile;
-  if (profile.status !== "active" || profile.deleted_at) {
-    await supabase.auth.signOut(); showAuth(); toast("Esta cuenta fue deshabilitada. Consulte al administrador.", "error"); return;
-  }
-  if (profile.global_role === "jurado") { window.location.href = "jury.html"; return; }
-  const requestedTeamId = new URLSearchParams(window.location.search).get("team");
-  state.administrativeAccess = false;
-  if (requestedTeamId && profile.global_role === "admin") {
-    const { data: requestedTeam, error: requestedTeamError } = await supabase.from("academic_teams").select("id,name,modality,max_members,cohort:cohorts(name,year)").eq("id", requestedTeamId).maybeSingle();
-    if (requestedTeamError || !requestedTeam) return showFatal(requestedTeamError || new Error("El equipo solicitado no existe."));
-    state.administrativeAccess = true;
-    state.membership = { role: "administrador", status: "active" };
-    state.team = requestedTeam;
-    await loadWorkspace(); hide("#join-view"); show("#app-view"); return;
-  }
-  const { data: membership } = await supabase.from("team_members").select("role,status,team:academic_teams(id,name,modality,max_members,cohort:cohorts(name,year))").eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
-  if (!membership?.team) {
-    renderMembershipCenter();
-    show("#join-view"); return;
-  }
-  state.membership = membership; state.team = membership.team;
-  await loadWorkspace(); hide("#join-view"); show("#app-view");
-}
-
-function renderMembershipCenter() {
-  hide("#app-view");
-  el("#membership-name").textContent = state.profile.full_name || "Cuenta académica";
-  el("#membership-email").textContent = state.profile.email;
-  el("#membership-role").textContent = roleName(state.profile.global_role);
-  const canCreate = state.profile.global_role === "lider";
-  el("#leader-create-card").classList.toggle("hidden", !canCreate);
-  el("#leader-wait-card").classList.toggle("hidden", canCreate);
-  el("#membership-admin-link").classList.toggle("hidden", !["admin", "docente"].includes(state.profile.global_role));
-}
-
-async function joinTeam(event) {
-  event.preventDefault(); const button = event.submitter; const values = formData(event.currentTarget); setBusy(button, true);
-  const { error } = await supabase.rpc("join_with_invitation", { raw_code: values.invitation, participant_name: state.profile.full_name || state.profile.email });
-  setBusy(button, false); if (error) return toast(humanError(error), "error"); toast("Ya hace parte del equipo."); await enterPortal(state.user);
-}
-
-async function createTeamAsLeader(event) {
-  event.preventDefault(); const button = event.submitter; const values = formData(event.currentTarget);
-  setBusy(button, true, "Creando equipo…");
-  const { error } = await supabase.rpc("create_team_as_leader", {
-    p_name: values.name,
-    p_modality: values.modality,
-    p_max_members: Number(values.max_members),
-  });
-  setBusy(button, false);
-  if (error) return toast(humanError(error), "error");
-  toast("Equipo creado. Ahora puede invitar a sus integrantes.");
-  await enterPortal(state.user);
-}
-
-async function loadWorkspace() {
-  const [{ data: perspectives }, { data: project }, { data: participants, error: participantsError }] = await Promise.all([
-    supabase.from("strategic_perspectives").select("*").order("sort_order"),
-    supabase.from("projects").select("*").eq("team_id", state.team.id).maybeSingle(),
-    supabase.rpc("get_team_participants", { p_team: state.team.id }),
-  ]);
-  state.perspectives = perspectives || []; state.project = project; state.participants = participants || [];
-  if (participantsError) toast(humanError(participantsError), "error");
-  el("#profile-name").textContent = state.profile.full_name || state.profile.email;
-  el("#team-label").textContent = `${state.team.name} · ${state.team.modality}`;
-  el("#admin-workspace-banner").classList.toggle("hidden", !state.administrativeAccess);
-  el("#admin-workspace-team").textContent = state.administrativeAccess ? state.team.name : "";
-  el("#admin-link").classList.toggle("hidden", !["admin", "docente"].includes(state.profile.global_role));
-  el("#team-invite-btn").classList.toggle("hidden", state.membership.role !== "lider");
-  renderNavigation();
-  if (!project) { renderCreateProject(); return; }
-  await loadProjectData(); subscribeRealtime(); renderShell(); renderSection();
-}
-
-async function loadProjectData() {
-  const id = state.project.id;
-  const queries = await Promise.all([
-    supabase.from("problem_diagnosis").select("*").eq("project_id", id).maybeSingle(),
-    supabase.from("project_objectives").select("*").eq("project_id", id).order("sort_order"),
-    supabase.from("solution_alternatives").select("*").eq("project_id", id).order("created_at"),
-    supabase.from("action_plan").select("*").eq("project_id", id).order("sort_order"),
-    supabase.from("stakeholders").select("*").eq("project_id", id).order("created_at"),
-    supabase.from("project_resources").select("*").eq("project_id", id).order("created_at"),
-    supabase.from("indicators").select("*").eq("project_id", id).order("created_at"),
-    supabase.from("prototype").select("*").eq("project_id", id).maybeSingle(),
-    supabase.from("deliverables").select("*").eq("project_id", id).order("due_at"),
-    supabase.from("project_comments").select("*,author:profiles(full_name,email)").eq("project_id", id).order("created_at", { ascending: false }),
-  ]);
-  [state.diagnosis, state.objectives, state.alternatives, state.actions, state.stakeholders, state.resources, state.indicators, state.prototype, state.deliverables, state.comments] = queries.map((result, index) => index === 0 || index === 7 ? result.data : result.data || []);
-}
-
-function renderCreateProject() {
-  show("#project-empty"); hide("#project-content");
-  el("#project-empty").innerHTML = `<section class="project-welcome"><span class="eyebrow">${esc(state.team.name)}</span><h1>Comiencen por definir el reto estratégico</h1><p>El proyecto debe responder a una necesidad real y aplicar las competencias desarrolladas en el diplomado.</p><form id="create-project-form" class="form-card"><label>Nombre del proyecto<input name="title" required placeholder="Un nombre claro y memorable"></label><label>Perspectiva estratégica<select name="perspective_id"><option value="">Seleccione…</option>${state.perspectives.map((item) => `<option value="${item.id}">${item.code} · ${esc(item.name)}</option>`).join("")}</select></label><label class="wide">Alineación estratégica<textarea name="strategic_alignment" required placeholder="¿Con qué necesidad u objetivo de la organización se conecta?"></textarea></label><button class="primary-btn">Crear espacio de proyecto →</button></form></section>${teamRosterContent()}`;
-  el("#create-project-form").addEventListener("submit", createProject);
-}
-
-async function createProject(event) {
-  event.preventDefault(); const values = formData(event.currentTarget); const button = event.submitter; setBusy(button, true);
-  const payload = { team_id: state.team.id, title: values.title, perspective_id: values.perspective_id || null, strategic_alignment: values.strategic_alignment, created_by: state.user.id, updated_by: state.user.id };
-  const { data, error } = await supabase.from("projects").insert(payload).select().single();
-  if (error) { setBusy(button, false); return toast(humanError(error), "error"); }
-  state.project = data;
-  await Promise.all([
-    supabase.from("problem_diagnosis").insert({ project_id: data.id, updated_by: state.user.id }),
-    supabase.from("prototype").insert({ project_id: data.id, updated_by: state.user.id }),
-    supabase.from("deliverables").insert([
-      { project_id: data.id, stage: "formulacion", title: "Formulación: diagnóstico y objetivos", due_at: "2026-09-17T23:59:00-05:00" },
-      { project_id: data.id, stage: "guia_completa", title: "Guía completa: ítems 3 al 7", due_at: "2026-10-27T23:59:00-05:00" },
-      { project_id: data.id, stage: "prototipo", title: "Prototipo validado", due_at: "2026-11-19T23:59:00-05:00" },
-      { project_id: data.id, stage: "shark_tank", title: "Presentación tipo shark tank", due_at: "2026-11-26T08:00:00-05:00" },
-    ]),
-  ]);
-  await loadWorkspace(); hide("#project-empty"); show("#project-content"); toast("Proyecto creado para todo el equipo.");
-}
-
-function renderNavigation() {
-  el("#course-nav").innerHTML = SECTIONS.map(([key, label, number]) => `<button class="${state.section === key ? "active" : ""}" data-section="${key}"><span>${number}</span>${label}${sectionCheck(key) ? "<i>✓</i>" : ""}</button>`).join("");
-}
-function sectionCheck(key) { if (!state.project) return false; return ({ members: state.participants.length > 0, diagnosis: !!state.diagnosis?.current_situation, objectives: state.objectives.length > 1, alternatives: state.alternatives.length > 0, action: state.actions.length > 0, people: state.stakeholders.length > 0, indicators: state.indicators.length > 0, prototype: !!state.prototype?.description, deliverables: state.deliverables.some((d) => d.status === "submitted" || d.status === "approved") })[key] || false; }
-function renderShell() { const progress = calculateProgress(); el("#overall-progress").textContent = `${progress}%`; el("#overall-bar").style.width = `${progress}%`; }
-function calculateProgress() { const checks = [state.diagnosis?.current_situation, state.objectives.length >= 2, state.alternatives.length, state.actions.length, state.stakeholders.length, state.indicators.length, state.prototype?.description]; return Math.round((checks.filter(Boolean).length / checks.length) * 100); }
-
-function renderSection() {
-  if (!state.project) return;
-  const renderers = { overview: renderOverview, members: renderMembers, diagnosis: renderDiagnosis, objectives: renderObjectives, alternatives: renderAlternatives, action: renderActions, people: renderPeople, indicators: renderIndicators, prototype: renderPrototype, deliverables: renderDeliverables, comments: renderComments };
-  el("#project-content").innerHTML = renderers[state.section](); renderShell();
-}
-
-function sectionHead(kicker, title, description) { return `<header class="section-head"><div><span class="eyebrow">${kicker}</span><h1>${title}</h1><p>${description}</p></div><span class="autosave-badge">Colaborativo</span></header>`; }
-function renderOverview() {
-  const next = state.deliverables.find((item) => item.status === "pending" || item.status === "changes_requested");
-  return `${sectionHead("Proyecto de aplicación", esc(state.project.title), "Un espacio compartido para convertir una necesidad estratégica en una solución validada.")}<div class="project-metrics"><article><span>Etapa actual</span><strong>${stageName(state.project.stage)}</strong><small>${esc(state.project.status)}</small></article><article><span>Avance académico</span><strong>${calculateProgress()}%</strong><small>7 componentes de la guía</small></article><article><span>Próxima entrega</span><strong>${next ? shortDate(next.due_at) : "Completado"}</strong><small>${next ? esc(next.title) : "Sin pendientes"}</small></article></div><div class="journey"><div class="journey-step active"><b>1</b><div><strong>Formulación</strong><span>Diagnóstico y guía de proyecto</span></div></div><div class="journey-line"></div><div class="journey-step ${state.project.stage !== "formulacion" ? "active" : ""}"><b>2</b><div><strong>Prototipo</strong><span>Diseño, prueba y validación</span></div></div><div class="journey-line"></div><div class="journey-step ${["shark_tank", "completed"].includes(state.project.stage) ? "active" : ""}"><b>3</b><div><strong>Shark tank</strong><span>Pitch de 7 minutos ante jurados</span></div></div></div><form class="section-card project-summary-form" data-form="project"><h3>Presentación general</h3><label>Título<input name="title" required value="${esc(state.project.title)}"></label><label>Alineación estratégica<textarea name="strategic_alignment">${esc(state.project.strategic_alignment)}</textarea></label><label>Resumen ejecutivo<textarea name="executive_summary" placeholder="Explique el propósito y el impacto esperado del proyecto.">${esc(state.project.executive_summary)}</textarea></label><button class="primary-btn">Guardar presentación</button></form>`;
-}
-function renderMembers() {
-  return `${sectionHead("Colaboración", "Integrantes del equipo", "Directorio privado del grupo. Los integrantes y líderes pueden editar el proyecto de forma colaborativa.")}${teamRosterContent()}`;
-}
-function teamRosterContent() {
-  const cards = state.participants.map((participant) => {
-    const displayName = participant.full_name || participant.email || "Sin nombre";
-    return `<article class="team-member-card"><span class="team-member-avatar">${esc(initials(displayName))}</span><div class="team-member-identity"><strong>${esc(displayName)}${participant.is_current_user ? '<em>Usted</em>' : ""}</strong><a href="mailto:${esc(participant.email)}">${esc(participant.email)}</a><small>Se unió ${shortDate(participant.joined_at)}</small></div><div class="team-member-permissions"><span class="role-badge">${esc(memberRoleName(participant.member_role))}</span><b class="${participant.can_edit ? "can-edit" : "read-only"}">${participant.can_edit ? "Puede editar el proyecto" : "Solo lectura"}</b></div></article>`;
-  }).join("");
-  return `<section class="team-roster-card"><header><div><span>Directorio del grupo</span><strong>${state.participants.length}/${state.team.max_members} integrantes</strong></div><small>Nombre y correo visibles únicamente dentro del equipo.</small></header><div class="team-roster-grid">${cards || empty("Todavía no hay integrantes activos en este equipo.")}</div></section>`;
-}
-function renderDiagnosis() { const d = state.diagnosis || {}; return `${sectionHead("Componente 01", "Diagnóstico y situación actual", "Delimite el problema en impacto, ubicación, involucrados, magnitud y perspectiva cronológica.")}<form class="section-card structured-form" data-form="diagnosis"><div class="form-intro"><strong>Problema identificado</strong><span>Use datos, costos, servicio y calidad para sustentar la brecha.</span></div>${area("Situación actual", "current_situation", d.current_situation, "¿Qué ocurre y cuál es la brecha frente al estándar?", true)}${area("Justificación de la mejora", "justification", d.justification)}<div class="dimension-grid">${area("Impacto", "impact", d.impact, "Comparación contra un estándar")}${area("Ubicación física", "physical_location", d.physical_location, "Áreas, unidades, regiones o relaciones afectadas")}${area("Involucrados", "people_involved", d.people_involved, "Personas afectadas o con interés")}${area("Magnitud", "magnitude", d.magnitude, "Impacto absoluto o relativo")}${area("Perspectiva cronológica", "chronology", d.chronology, "Desde cuándo existe y evolución")}${area("Causas raíz", "root_causes", d.root_causes, "Factores que originan y mantienen el problema")}</div>${area("Datos y métricas relevantes", "relevant_data", d.relevant_data)}<div class="three-cols"><label>Impacto económico (COP)<input name="cost_impact" type="number" min="0" value="${d.cost_impact || ""}"></label>${area("Impacto en servicio", "service_impact", d.service_impact)}${area("Impacto en calidad", "quality_impact", d.quality_impact)}</div>${area("Capacidades para efectuar el cambio", "organizational_capabilities", d.organizational_capabilities)}<button class="primary-btn">Guardar diagnóstico</button></form>`; }
-function renderObjectives() { return `${sectionHead("Componente 02", "Objetivos SMART", "Defina un objetivo general y objetivos específicos cuantificables, alcanzables y con fecha.")}<div class="section-grid"><form class="section-card" data-form="objective"><h3>Agregar objetivo</h3><label>Tipo<select name="objective_type"><option value="general">General</option><option value="specific">Específico</option></select></label>${area("Redacción SMART", "statement", "", "Verbo + resultado + medida + fecha", true)}<div class="three-cols"><label>Métrica<input name="metric"></label><label>Meta<input name="target" type="number" step="any"></label><label>Unidad<input name="unit" placeholder="%, días, COP…"></label></div><label>Fecha límite<input name="deadline" type="date"></label><button class="primary-btn">Agregar objetivo</button></form><div class="records-card"><h3>Objetivos del proyecto</h3>${recordList(state.objectives, (item) => `<div><span class="record-type">${item.objective_type === "general" ? "General" : "Específico"}</span><strong>${esc(item.statement)}</strong><small>${item.target ?? "—"} ${esc(item.unit)} · ${shortDate(item.deadline)}</small></div>`, "objective")}</div></div>`; }
-function renderAlternatives() { return `${sectionHead("Componente 03", "Alternativas de solución", "Compare propuestas concretas y documente por qué seleccionan la de mayor valor.")}<div class="section-grid"><form class="section-card" data-form="alternative"><h3>Nueva alternativa</h3><label>Título<input name="title" required></label>${area("Descripción", "description", "", "¿Cómo resolvería el problema?", true)}${area("Impacto esperado", "expected_impact", "")}<div class="three-cols"><label>Factibilidad (1–5)<input name="feasibility_score" type="number" min="1" max="5"></label><label>Impacto (1–5)<input name="impact_score" type="number" min="1" max="5"></label><label>Costo favorable (1–5)<input name="cost_score" type="number" min="1" max="5"></label></div><button class="primary-btn">Agregar alternativa</button></form><div class="records-card"><h3>Matriz de alternativas</h3>${recordList(state.alternatives, (item) => `<div><span class="score-pill">${Number(item.feasibility_score || 0) + Number(item.impact_score || 0) + Number(item.cost_score || 0)}/15</span><strong>${esc(item.title)}</strong><small>${esc(item.description)}</small></div>`, "alternative")}</div></div>`; }
-function renderActions() { return `${sectionHead("Componente 04", "Plan de acción y cronograma", "Conecte cada objetivo con acciones, método, responsable, fechas y avance.")}<form class="section-card inline-create" data-form="action"><label>Qué va a hacer<input name="action" required></label><label>Cómo lo hará<input name="method"></label><label>Responsable<input name="owner_name"></label><label>Inicio<input name="start_date" type="date"></label><label>Fin<input name="end_date" type="date"></label><button class="primary-btn">Agregar acción</button></form><div class="gantt-card"><div class="table-header"><h3>Cronograma colaborativo</h3><span>${state.actions.length} acciones</span></div>${state.actions.length ? state.actions.map((item) => `<article class="action-row"><div><strong>${esc(item.action)}</strong><small>${esc(item.owner_name || "Sin responsable")} · ${shortDate(item.start_date)} → ${shortDate(item.end_date)}</small></div><select data-progress-id="${item.id}" data-field="status"><option value="pending" ${item.status === "pending" ? "selected" : ""}>Pendiente</option><option value="in_progress" ${item.status === "in_progress" ? "selected" : ""}>En curso</option><option value="blocked" ${item.status === "blocked" ? "selected" : ""}>Bloqueada</option><option value="completed" ${item.status === "completed" ? "selected" : ""}>Completada</option></select><input data-progress-id="${item.id}" data-field="progress" type="range" min="0" max="100" value="${item.progress}"><b>${item.progress}%</b><button class="delete-record" data-delete="action" data-id="${item.id}">×</button></article>`).join("") : empty("Agregue la primera acción del proyecto.")}</div>`; }
-function renderPeople() { return `${sectionHead("Componente 05", "Involucrados y recursos", "Asigne roles, funciones y dedicación; identifique los recursos para ejecutar la solución.")}<div class="section-grid"><form class="section-card" data-form="stakeholder"><h3>Agregar involucrado</h3><label>Persona<input name="person_name" required></label><label>Rol en el proyecto<input name="project_role" required></label>${area("Funciones", "functions", "", "Responsabilidades concretas", true)}<div class="two-cols"><label>Dedicación<input name="dedication_hours" type="number" step="0.5"></label><label>Área<input name="area"></label></div><button class="primary-btn">Agregar persona</button></form><form class="section-card" data-form="resource"><h3>Agregar recurso</h3><label>Tipo<select name="resource_type"><option value="humano">Humano</option><option value="tecnologico">Tecnológico</option><option value="financiero">Financiero</option><option value="fisico">Físico</option><option value="informacion">Información</option><option value="otro">Otro</option></select></label>${area("Descripción", "description", "", "Qué se necesita y para qué", true)}<label>Costo estimado<input name="estimated_cost" type="number" min="0"></label><button class="primary-btn">Agregar recurso</button></form></div><div class="people-grid">${state.stakeholders.map((item) => `<article><span>${esc(item.project_role)}</span><strong>${esc(item.person_name)}</strong><p>${esc(item.functions)}</p><small>${item.dedication_hours || "—"} horas ${esc(item.dedication_period)}</small><button class="delete-record" data-delete="stakeholder" data-id="${item.id}">×</button></article>`).join("") || empty("Aún no hay involucrados.")}</div><div class="resource-strip">${state.resources.map((item) => `<div><span>${esc(item.resource_type)}</span><strong>${esc(item.description)}</strong><small>${money(item.estimated_cost)}</small><button class="delete-record" data-delete="resource" data-id="${item.id}">×</button></div>`).join("")}</div>`; }
-function renderIndicators() { return `${sectionHead("Componente 06", "Indicadores de eficacia y eficiencia", "Defina cómo evidenciarán el cumplimiento de los objetivos y el impacto esperado.")}<div class="section-grid"><form class="section-card" data-form="indicator"><h3>Nuevo indicador</h3><label>Nombre<input name="name" required></label><label>Tipo<select name="indicator_type"><option value="eficacia">Eficacia</option><option value="eficiencia">Eficiencia</option><option value="impacto">Impacto</option></select></label><label>Fórmula<input name="formula" required placeholder="Numerador / denominador × 100"></label><div class="three-cols"><label>Línea base<input name="baseline" type="number" step="any"></label><label>Meta<input name="target" type="number" step="any"></label><label>Unidad<input name="unit"></label></div><label>Fuente de datos<input name="data_source"></label><button class="primary-btn">Agregar indicador</button></form><div class="indicator-board">${state.indicators.map((item) => `<article><div><span>${esc(item.indicator_type)}</span><strong>${esc(item.name)}</strong><small>${esc(item.formula)}</small></div><div class="indicator-values"><span>Base <b>${item.baseline ?? "—"}</b></span><span>Meta <b>${item.target ?? "—"} ${esc(item.unit)}</b></span></div><button class="delete-record" data-delete="indicator" data-id="${item.id}">×</button></article>`).join("") || empty("Defina al menos un indicador de eficacia y uno de eficiencia.")}</div></div>`; }
-function renderPrototype() { const p = state.prototype || {}; return `${sectionHead("Entregable 02", "Diseño y validación del prototipo", "Materialice la solución, pruebe sus hipótesis y documente la evidencia.")}<form class="section-card structured-form" data-form="prototype"><div class="two-cols"><label>Tipo de prototipo<input name="prototype_type" value="${esc(p.prototype_type)}" placeholder="Proceso, servicio, interfaz, piloto…"></label><label>Estado<select name="status"><option value="idea">Idea</option><option value="design" ${p.status === "design" ? "selected" : ""}>Diseño</option><option value="testing" ${p.status === "testing" ? "selected" : ""}>Pruebas</option><option value="validated" ${p.status === "validated" ? "selected" : ""}>Validado</option></select></label></div>${area("Propuesta de valor", "value_proposition", p.value_proposition, "Para quién, qué resuelve y por qué es valiosa", true)}${area("Descripción del prototipo", "description", p.description)}${area("Hipótesis a validar", "hypothesis", p.hypothesis)}${area("Método de validación", "validation_method", p.validation_method)}${area("Resultados de prueba", "test_results", p.test_results)}<label>Enlace a evidencia<input name="evidence_url" type="url" value="${esc(p.evidence_url)}" placeholder="https://…"></label><button class="primary-btn">Guardar prototipo</button></form>`; }
-function renderDeliverables() { return `${sectionHead("Seguimiento académico", "Entregables y fechas clave", "Presente la guía, el prototipo y el pitch final para revisión de docentes y jurados.")}<div class="deliverable-list">${state.deliverables.map((item) => `<article><div class="date-block"><b>${new Date(item.due_at).getDate()}</b><span>${new Date(item.due_at).toLocaleDateString("es-CO", { month: "short" })}</span></div><div><span class="status ${item.status}">${statusName(item.status)}</span><strong>${esc(item.title)}</strong><small>${item.reviewer_feedback ? `Retroalimentación: ${esc(item.reviewer_feedback)}` : `Fecha límite: ${shortDate(item.due_at)}`}</small></div><form class="upload-form" data-deliverable="${item.id}" data-stage="${item.stage}"><input name="file" type="file" accept=".pdf,.ppt,.pptx,.doc,.docx,.xlsx,.png,.jpg,.jpeg" required><button class="ghost-btn">${item.file_path ? "Reemplazar" : "Entregar"}</button></form></article>`).join("")}</div><div class="pitch-card"><span>Presentación final</span><h3>Shark tank · 7 minutos</h3><p>Panel de directivos de Terpel y docentes de la Universidad Javeriana.</p><div><b>Impacto estratégico</b><b>Factibilidad</b><b>Innovación</b><b>Evidencia</b><b>Presentación</b></div></div><section class="word-export-card"><div><span>Documento editable</span><h3>Borrador completo del proyecto</h3><p>Reúne en Word la información guardada en todos los frentes, con el formato y la marca institucional de la plantilla.</p></div><button class="word-download-btn" type="button" data-download-draft><span class="word-file-icon">W</span><span>Descargar borrados</span></button></section>`; }
-function renderComments() { return `${sectionHead("Conversación del equipo", "Comentarios y retroalimentación", "Registre decisiones, preguntas y aportes de participantes y docentes.")}<form class="comment-form" data-form="comment"><select name="section"><option value="general">General</option>${SECTIONS.slice(1, 8).map(([key, name]) => `<option value="${key}">${name}</option>`).join("")}</select><textarea name="body" required placeholder="Escriba un comentario…"></textarea><button class="primary-btn">Publicar</button></form><div class="comment-list">${state.comments.map((item) => `<article><span class="avatar">${esc((item.author?.full_name || item.author?.email || "U").slice(0, 1).toUpperCase())}</span><div><div><strong>${esc(item.author?.full_name || item.author?.email)}</strong><span>${esc(item.section)} · ${shortDate(item.created_at)}</span></div><p>${esc(item.body)}</p></div></article>`).join("") || empty("Todavía no hay comentarios.")}</div>`; }
-
-async function handleSectionSubmit(event) {
-  event.preventDefault(); const form = event.target; if (form.matches(".upload-form")) return uploadDeliverable(form, event.submitter);
-  const type = form.dataset.form; if (!type) return; const values = formData(form); const button = event.submitter; setBusy(button, true);
-  let response;
-  if (type === "project") response = await supabase.from("projects").update({ ...values, updated_by: state.user.id, updated_at: new Date().toISOString() }).eq("id", state.project.id);
-  if (type === "diagnosis") response = await supabase.from("problem_diagnosis").upsert({ project_id: state.project.id, ...emptyToNull(values, ["cost_impact"]), updated_by: state.user.id, updated_at: new Date().toISOString() });
-  if (type === "objective") response = await supabase.from("project_objectives").insert({ project_id: state.project.id, ...values, target: values.target === "" ? null : Number(values.target), deadline: values.deadline || null, created_by: state.user.id, sort_order: state.objectives.length });
-  if (type === "alternative") response = await supabase.from("solution_alternatives").insert({ project_id: state.project.id, ...numeric(values, ["feasibility_score", "impact_score", "cost_score"]), created_by: state.user.id });
-  if (type === "action") response = await supabase.from("action_plan").insert({ project_id: state.project.id, ...values, start_date: values.start_date || null, end_date: values.end_date || null, created_by: state.user.id, sort_order: state.actions.length });
-  if (type === "stakeholder") response = await supabase.from("stakeholders").insert({ project_id: state.project.id, ...emptyToNull(values, ["dedication_hours"]), created_by: state.user.id });
-  if (type === "resource") response = await supabase.from("project_resources").insert({ project_id: state.project.id, ...numeric(values, ["estimated_cost"]), created_by: state.user.id });
-  if (type === "indicator") response = await supabase.from("indicators").insert({ project_id: state.project.id, ...emptyToNull(values, ["baseline", "target"]), created_by: state.user.id });
-  if (type === "prototype") response = await supabase.from("prototype").upsert({ project_id: state.project.id, ...values, updated_by: state.user.id, updated_at: new Date().toISOString() });
-  if (type === "comment") response = await supabase.from("project_comments").insert({ project_id: state.project.id, ...values, author_id: state.user.id });
-  setBusy(button, false); if (response?.error) return toast(humanError(response.error), "error");
-  toast("Cambios guardados para el equipo."); await refreshProject();
-}
-
-async function handleSectionClick(event) {
-  const downloadButton = event.target.closest("[data-download-draft]");
-  if (downloadButton) return downloadWordDraft(downloadButton);
-  const button = event.target.closest("[data-delete]"); if (!button) return;
-  const map = { objective: "project_objectives", alternative: "solution_alternatives", action: "action_plan", stakeholder: "stakeholders", resource: "project_resources", indicator: "indicators" };
-  if (!confirm("¿Eliminar este registro?")) return;
-  const { error } = await supabase.from(map[button.dataset.delete]).delete().eq("id", button.dataset.id);
-  if (error) return toast(humanError(error), "error"); await refreshProject(); toast("Registro eliminado.");
-}
-
-async function downloadWordDraft(button) {
-  if (!state.project) return toast("Primero cree el proyecto para generar el borrador.", "error");
-  if (!window.WordExporter?.downloadDraft) return toast("No se pudo cargar el generador de Word. Recargue con Ctrl + F5.", "error");
-  const original = button.innerHTML;
-  button.disabled = true;
-  button.textContent = "Preparando Word…";
-  try {
-    const filename = await window.WordExporter.downloadDraft({ config, state, progress: calculateProgress() });
-    toast(`Se descargó ${filename}.`);
-  } catch (error) {
-    toast(error?.message || "No fue posible generar el documento Word.", "error");
-  } finally {
-    button.disabled = false;
-    button.innerHTML = original;
-  }
-}
-
-async function handleSectionChange(event) {
-  const input = event.target.closest("[data-progress-id]"); if (!input) return;
-  const payload = { [input.dataset.field]: input.dataset.field === "progress" ? Number(input.value) : input.value, updated_at: new Date().toISOString() };
-  const { error } = await supabase.from("action_plan").update(payload).eq("id", input.dataset.progressId);
-  if (error) return toast(humanError(error), "error"); await refreshProject();
-}
-
-async function uploadDeliverable(form, button) {
-  const file = form.elements.file.files[0]; if (!file) return; setBusy(button, true, "Subiendo…");
-  const safeName = file.name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9._-]/g, "-");
-  const path = `${state.team.id}/${state.project.id}/${form.dataset.stage}/${Date.now()}-${safeName}`;
-  const { error: uploadError } = await supabase.storage.from("deliverables").upload(path, file, { upsert: false });
-  if (uploadError) { setBusy(button, false); return toast(humanError(uploadError), "error"); }
-  const { error } = await supabase.from("deliverables").update({ file_path: path, status: "submitted", submitted_at: new Date().toISOString(), submitted_by: state.user.id }).eq("id", form.dataset.deliverable);
-  setBusy(button, false); if (error) return toast(humanError(error), "error"); await refreshProject(); toast("Entregable cargado de forma privada.");
-}
-
-async function refreshProject() {
-  const { data } = await supabase.from("projects").select("*").eq("id", state.project.id).single(); state.project = data || state.project; await loadProjectData(); renderNavigation(); renderSection();
-}
-
-function subscribeRealtime() {
-  if (state.realtime) supabase.removeChannel(state.realtime);
-  let timer;
-  const refresh = () => { clearTimeout(timer); timer = setTimeout(async () => { await refreshProject(); toast("El equipo realizó cambios; la vista fue actualizada."); }, 700); };
-  state.realtime = supabase.channel(`project-${state.project.id}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "projects", filter: `id=eq.${state.project.id}` }, refresh)
-    .on("postgres_changes", { event: "*", schema: "public", table: "action_plan", filter: `project_id=eq.${state.project.id}` }, refresh)
-    .on("postgres_changes", { event: "*", schema: "public", table: "project_comments", filter: `project_id=eq.${state.project.id}` }, refresh)
-    .subscribe();
-}
-
-function teamInvitationModal() {
-  if (state.membership?.role !== "lider") return toast("Solo el líder puede generar invitaciones.", "error");
-  const suggested = permanentInviteCode();
-  openModal(`<span class="eyebrow">${esc(state.team.name)}</span><h2>Crear código permanente</h2><p>El código no vence y podrá reutilizarse mientras el equipo tenga cupos. Se muestra una sola vez: cópielo y compártalo únicamente con sus integrantes.</p><form id="team-invite-form" class="modal-form"><label>Código permanente<input name="code" value="${suggested}" minlength="8" readonly required></label><button class="primary-btn">Activar código permanente</button></form><div id="team-created-code"></div>`);
-  el("#team-invite-form").addEventListener("submit", async (event) => {
-    event.preventDefault(); const button = event.submitter; const values = formData(event.currentTarget);
-    setBusy(button, true, "Creando…");
-    const { error } = await supabase.rpc("create_invitation", {
-      p_team: state.team.id,
-      raw_code: values.code,
-      p_role: "integrante",
-      p_max_uses: 2147483647,
-      p_expires_at: null,
-    });
-    setBusy(button, false);
-    if (error) return toast(humanError(error), "error");
-    const code = values.code.trim().toUpperCase();
-    event.currentTarget.classList.add("hidden");
-    el("#team-created-code").innerHTML = `<div class="one-time-code"><span>Código permanente del equipo</span><strong>${esc(code)}</strong><button class="ghost-btn" id="copy-team-code" type="button">Copiar código</button><small>No vence. Funcionará mientras haya cupos y la invitación no sea revocada.</small></div>`;
-    el("#copy-team-code").addEventListener("click", async () => {
-      await navigator.clipboard.writeText(code); toast("Código permanente copiado.");
-    });
-  });
-}
-
-function openModal(content) {
-  el("#modal-root").innerHTML = `<div class="modal-backdrop"><section class="modal"><button class="close-btn" aria-label="Cerrar">×</button>${content}</section></div>`;
-  el(".close-btn").addEventListener("click", closeModal);
-  el(".modal-backdrop").addEventListener("click", (event) => { if (event.target === event.currentTarget) closeModal(); });
-}
-function closeModal() { el("#modal-root").innerHTML = ""; }
-
-function area(label, name, value = "", placeholder = "", wide = false) { return `<label class="${wide ? "wide" : ""}">${label}<textarea name="${name}" placeholder="${esc(placeholder)}">${esc(value)}</textarea></label>`; }
-function recordList(items, render, type) { return items.length ? `<div class="record-list">${items.map((item) => `<article>${render(item)}<button class="delete-record" data-delete="${type}" data-id="${item.id}">×</button></article>`).join("")}</div>` : empty("Aún no hay registros en este componente."); }
-function empty(message) { return `<div class="empty-state">${esc(message)}</div>`; }
-function initials(value) { return value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "U"; }
-function memberRoleName(value) { return ({ lider: "Líder", integrante: "Integrante", observador: "Observador" })[value] || value; }
-function permanentInviteCode() {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = crypto.getRandomValues(new Uint8Array(6));
-  return `GM26-${Array.from(bytes, (value) => alphabet[value % alphabet.length]).join("")}`;
-}
-function stageName(value) { return ({ formulacion: "Formulación", prototipo: "Prototipo", shark_tank: "Shark tank", completed: "Finalizado" })[value] || value; }
-function statusName(value) { return ({ pending: "Pendiente", submitted: "Entregado", in_review: "En revisión", changes_requested: "Requiere cambios", approved: "Aprobado" })[value] || value; }
-function emptyToNull(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
-function numeric(object, names) { const copy = { ...object }; names.forEach((name) => copy[name] = copy[name] === "" ? null : Number(copy[name])); return copy; }
-function roleName(value) { return ({ admin: "Administrador", docente: "Docente", participante: "Participante", jurado: "Jurado", lider: "Líder habilitado" })[value] || value; }
-function recoveryRedirectPresent() { const hash = new URLSearchParams(window.location.hash.slice(1)); const query = new URLSearchParams(window.location.search); return window.portalRecoveryRedirect === true || hash.get("type") === "recovery" || query.get("type") === "recovery"; }
-function humanError(error) { const message = error?.message || "No fue posible completar la operación."; if (/Invalid login/i.test(message)) return "Correo o contraseña incorrectos."; if (/Email not confirmed/i.test(message)) return "Confirme primero su correo electrónico."; if (/get_team_participants|schema cache/i.test(message)) return "Falta habilitar el directorio privado del equipo en Supabase. Ejecute supabase/migracion-participantes-equipo.sql."; if (/Código inválido o vencido/i.test(message)) return "Código no reconocido. Solicite al líder o al administrador un código permanente nuevo."; if (/duplicate key/i.test(message)) return "Ese registro ya existe."; return message; }
 })();

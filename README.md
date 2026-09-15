@@ -74,9 +74,7 @@ Siga [CONFIGURAR-SUPABASE.md](CONFIGURAR-SUPABASE.md). No necesita servidor prop
 
 Para conocer el historial de decisiones, el estado actual, los procedimientos de operación y los pendientes, consulte [MEMORIA-DEL-PROYECTO.md](MEMORIA-DEL-PROYECTO.md).
 
-Si la base ya estaba instalada con la primera versión, registre primero la cuenta `ing.stevenh.vargas@gmail.com` y ejecute `supabase/migracion-acceso-y-lideres.sql` antes de publicar esta versión. La migración asigna esa cuenta existente como administradora, agrega el rol `lider` y revoca los códigos antiguos de liderazgo.
-
-Para una base instalada antes del 18 de agosto de 2026, ejecute después `supabase/migracion-fix-pgcrypto.sql`, `supabase/migracion-admin-eliminaciones.sql` y `supabase/migracion-participantes-equipo.sql`. Las migraciones corrigen invitaciones, habilitan las operaciones administrativas y agregan el directorio privado de cada equipo.
+La versión del 15 de septiembre de 2026 requiere actualizar Supabase. Consulte [ACTUALIZAR-20260915.md](ACTUALIZAR-20260915.md) para instalación, migración, pruebas y recuperación. Publicar en GitHub no actualiza la base automáticamente.
 
 ## Vista local sin configurar Supabase
 

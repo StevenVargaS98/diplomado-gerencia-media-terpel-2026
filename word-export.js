@@ -196,13 +196,13 @@
   }
 
   function sectionIndicators(state) {
-    return [heading("7. Indicadores de eficacia y eficiencia"), table(["Indicador", "Tipo", "Fórmula", "Línea base", "Meta", "Fuente"], (state.indicators || []).map((item) => [
+    return [heading("7. Indicadores de eficacia y eficiencia"), table(["Indicador", "Tipo / frecuencia", "Fórmula", "Línea base", "Meta / actual", "Fuente / responsable"], (state.indicators || []).map((item) => [
       item.name,
-      item.indicator_type,
+      `${value(item.indicator_type)} · ${value(item.frequency)}`,
       item.formula,
       hasValue(item.baseline) ? `${item.baseline} ${value(item.unit, "")}`.trim() : "",
-      hasValue(item.target) ? `${item.target} ${value(item.unit, "")}`.trim() : "",
-      item.data_source,
+      `Meta: ${value(item.target)} · Actual: ${value(item.current_value)} ${value(item.unit, "")}`.trim(),
+      `${value(item.data_source)} · ${value(item.owner_name)}`,
     ]))].join("");
   }
 

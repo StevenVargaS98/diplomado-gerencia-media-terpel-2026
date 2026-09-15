@@ -19,17 +19,9 @@ Esta guía convierte el paquete estático en un portal multiusuario con informac
 
 `schema.sql` crea las tablas, índices, funciones de invitación, almacenamiento privado y políticas RLS. `seed.sql` agrega la cohorte 2026 y las seis perspectivas estratégicas.
 
-### Si ya instaló la primera versión
+### Si la base ya existe
 
-No vuelva a ejecutar todo el esquema. Abra una consulta nueva, copie `supabase/migracion-acceso-y-lideres.sql` y pulse **Run**. Esta migración permite entrar sin equipo, agrega el rol `lider`, habilita la creación segura de equipos y configura la cuenta administradora definida para el diplomado.
-
-Después ejecute, en consultas separadas y en este orden:
-
-1. `supabase/migracion-fix-pgcrypto.sql`: corrige el error `function digest(text, unknown) does not exist` al utilizar invitaciones.
-2. `supabase/migracion-admin-eliminaciones.sql`: agrega las operaciones administrativas para eliminar equipos y retirar personas.
-3. `supabase/migracion-participantes-equipo.sql`: permite ver nombre, correo, rol y acceso de los integrantes dentro de su propio equipo.
-
-No es necesario volver a ejecutar `schema.sql`.
+Siga [ACTUALIZAR-20260915.md](ACTUALIZAR-20260915.md). No vuelva a instalar todo el esquema. La migración de integridad debe ser la última; no ejecute migraciones históricas después.
 
 ## 3. Configurar el registro
 
@@ -76,7 +68,7 @@ No use la `service_role key`. Esa clave evita RLS y no debe aparecer en GitHub, 
 
 ## 5. Cuenta administradora
 
-Primero registre la cuenta `ing.stevenh.vargas@gmail.com`. Después ejecute `supabase/migracion-acceso-y-lideres.sql`; la migración asigna a esa cuenta existente el rol `admin` y estado activo. Si el resultado final no muestra ninguna fila, la cuenta todavía no existe: regístrela y vuelva a ejecutar la migración. Después abra `admin.html`.
+Registre y confirme el correo de la persona autorizada. Tome su UUID de Authentication → Users y ejecute `supabase/promover-administrador.sql` con ese UUID. Este script concede el rol sin sobrescribir las funciones y políticas actualizadas. Después abra `admin.html`.
 
 La promoción no ocurre automáticamente durante el registro. Esta separación es importante cuando la confirmación de correo está desactivada: evita que alguien obtenga permisos administrativos con solo escribir esa dirección.
 

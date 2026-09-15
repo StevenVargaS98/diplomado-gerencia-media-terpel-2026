@@ -1,15 +1,17 @@
 # Checklist antes de invitar participantes
 
+Procedimiento vigente: [ACTUALIZAR-20260915.md](ACTUALIZAR-20260915.md). Las comprobaciones locales están documentadas en el informe de correcciones; esta lista corresponde a la aceptación pendiente en el servicio real.
+
 ## Supabase
 
 - [ ] Proyecto creado en la región aprobada por la organización.
-- [ ] `schema.sql` ejecutado sin errores.
+- [ ] Instalación nueva con `schema.sql` o actualización existente con `migracion-integridad-20260915.sql`; `portal_version()` devuelve `20260915`.
 - [ ] `seed.sql` ejecutado.
 - [ ] Confirmación de correo habilitada.
 - [ ] Site URL y Redirect URLs configuradas.
 - [ ] Primer administrador promovido mediante SQL.
 - [ ] Bucket `deliverables` aparece como privado.
-- [ ] El botón `Descargar borrados` genera un `.docx` editable con encabezado, fuente Terpel Sans, tablas y datos del equipo.
+- [ ] El botón `Descargar borrador Word` genera un `.docx` editable con encabezado, fuente Terpel Sans, tablas y datos del equipo.
 - [ ] Realtime activo para proyectos, acciones, comentarios y entregables.
 
 ## Seguridad
